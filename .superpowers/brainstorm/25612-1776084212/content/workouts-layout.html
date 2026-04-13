@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Percy the Pacer — Workouts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #080808;
+    --surface: #111111;
+    --border:  #1e1e1e;
+    --accent:  #C8FF00;
+    --danger:  #FF4444;
+    --warning: #FF9500;
+    --text:    #F5F5F5;
+    --muted:   #666666;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 14px;
+    max-width: 390px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+
+  .slim-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .app-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: 0.05em; color: var(--accent); }
+  .race-countdown { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .race-countdown span { color: var(--text); }
+
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-tab {
+    flex: 1; padding: 12px 8px; text-align: center;
+    font-size: 12px; font-weight: 500; color: var(--muted);
+    border-bottom: 2px solid transparent;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── WORKOUTS ── */
+  .workouts { padding: 0 0 32px; }
+
+  /* Adaptation banner */
+  .adapt-banner {
+    margin: 12px 16px 0;
+    background: #1a1a00;
+    border: 1px solid #3a3a00;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .adapt-banner-title {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .adapt-banner-detail {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .adapt-banner-expand {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Week section */
+  .week-section { margin-top: 16px; }
+  .week-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0 16px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .week-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.04em;
+  }
+  .week-label .week-num { color: var(--accent); }
+  .week-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* Session cards */
+  .session-list { padding: 0 16px; }
+
+  .session-card {
+    margin-top: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .session-card.expanded { border-color: #2e2e2e; }
+
+  .session-card-main {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 10px;
+    padding: 12px;
+    align-items: start;
+  }
+
+  /* Type badge column */
+  .type-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .type-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+    text-align: center;
+    width: 100%;
+  }
+  .badge-long    { background: #1a2e00; color: var(--accent); border: 1px solid #2e5000; }
+  .badge-tempo   { background: #1a1500; color: #FFD700; border: 1px solid #3a3000; }
+  .badge-interval{ background: #1a0a0a; color: #FF6B6B; border: 1px solid #3a1a1a; }
+  .badge-easy    { background: #0a1a1a; color: #66CCCC; border: 1px solid #1a3a3a; }
+  .badge-racepace{ background: #0a0a1a; color: #8888FF; border: 1px solid #1a1a3a; }
+  .badge-rest    { background: #111; color: var(--muted); border: 1px solid var(--border); }
+
+  .session-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* Middle content column */
+  .session-info { }
+  .session-pace {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .session-pace .pace-unit {
+    font-size: 14px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+  .session-details {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+    flex-wrap: wrap;
+  }
+  .session-detail-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .session-detail-item span { color: var(--text); }
+
+  /* Status column */
+  .status-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 4px;
+  }
+  .dot-completed { background: var(--accent); }
+  .dot-partial   { background: var(--warning); }
+  .dot-planned   { background: var(--border); border: 1px solid #444; }
+  .dot-missed    { background: var(--danger); }
+
+  .quality-ring-sm {
+    width: 32px; height: 32px;
+  }
+
+  /* Expanded section */
+  .session-expanded {
+    padding: 0 12px 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 0;
+  }
+  .expanded-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    padding-top: 12px;
+    margin-bottom: 10px;
+  }
+  .expanded-stat { }
+  .expanded-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+  .expanded-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .expanded-val.accent { color: var(--accent); }
+
+  .quality-bar-wrap {
+    margin-bottom: 10px;
+  }
+  .quality-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .quality-bar-label span { color: var(--text); font-family: 'DM Mono', monospace; }
+  .quality-bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .quality-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  .adapt-note {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Log Run button */
+  .log-run-btn {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 13px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  /* Collapsed week */
+  .week-collapsed .session-list { display: none; }
+  .week-collapsed .week-header {
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  .annotation {
+    font-size: 11px; color: var(--muted);
+    text-align: center; padding: 16px 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="slim-header">
+  <div class="app-name">PERCY</div>
+  <div class="race-countdown"><span>47</span> days · Run Melbourne HM</div>
+</div>
+
+<div class="nav">
+  <div class="nav-tab">Dashboard</div>
+  <div class="nav-tab active">Workouts</div>
+  <div class="nav-tab">Race</div>
+  <div class="nav-tab">Profile</div>
+</div>
+
+<div class="workouts">
+
+  <!-- Adaptation banner -->
+  <div class="adapt-banner">
+    <div class="adapt-banner-title">Plan updated</div>
+    <div class="adapt-banner-detail">Tempo moved Thu → Sat · Easy run dropped</div>
+    <div class="adapt-banner-expand">Tap for AI reasoning ↓</div>
+  </div>
+
+  <!-- Current week (expanded) -->
+  <div class="week-section">
+    <div class="week-header">
+      <div class="week-label">Week <span class="week-num">8</span> <span style="color:var(--muted);font-size:14px;font-family:'Instrument Sans',sans-serif;font-weight:400">of 13</span></div>
+      <div class="week-meta">14–20 Apr · 38.0 km</div>
+    </div>
+
+    <div class="session-list">
+
+      <!-- Completed session — expanded -->
+      <div class="session-card expanded">
+        <div class="session-card-main">
+          <div class="type-col">
+            <div class="type-badge badge-long">Long</div>
+            <div class="session-date">Sat 13</div>
+          </div>
+          <div class="session-info">
+            <div class="session-pace">6:12<span class="pace-unit">/km</span></div>
+            <div class="session-details">
+              <div class="session-detail-item">Actual <span>18.2km</span></div>
+              <div class="session-detail-item">HR <span>Z2</span></div>
+            </div>
+          </div>
+          <div class="status-col">
+            <div class="status-dot dot-completed"></div>
+            <!-- quality ring SVG -->
+            <svg class="quality-ring-sm" viewBox="0 0 32 32">
+              <circle cx="16" cy="16" r="12" fill="none" stroke="#1e1e1e" stroke-width="3"/>
+              <circle cx="16" cy="16" r="12" fill="none" stroke="#C8FF00" stroke-width="3"
+                stroke-dasharray="67.6 8.5" stroke-dashoffset="21.2"
+                transform="rotate(-90 16 16)"/>
+              <text x="16" y="20" text-anchor="middle" fill="#F5F5F5"
+                font-family="DM Mono,monospace" font-size="8">88</text>
+            </svg>
+          </div>
+        </div>
+        <div class="session-expanded">
+          <div class="expanded-grid">
+            <div class="expanded-stat">
+              <div class="expanded-label">Distance</div>
+              <div class="expanded-val accent">18.2 km</div>
+            </div>
+            <div class="expanded-stat">
+              <div class="expanded-label">Avg pace</div>
+              <div class="expanded-val">6:12</div>
+            </div>
+            <div class="expanded-stat">
+              <div class="expanded-label">Avg HR</div>
+              <div class="expanded-val">148 bpm</div>
+            </div>
+          </div>
+          <div class="quality-bar-wrap">
+            <div class="quality-bar-label">Distance score <span>94</span></div>
+            <div class="quality-bar-track"><div class="quality-bar-fill" style="width:94%;background:#C8FF00"></div></div>
+          </div>
+          <div class="quality-bar-wrap">
+            <div class="quality-bar-label">Pace score <span>82</span></div>
+            <div class="quality-bar-track"><div class="quality-bar-fill" style="width:82%;background:#C8FF00;opacity:0.7"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interval — planned today -->
+      <div class="session-card">
+        <div class="session-card-main">
+          <div class="type-col">
+            <div class="type-badge badge-interval">Interval</div>
+            <div class="session-date">Tue 15</div>
+          </div>
+          <div class="session-info">
+            <div class="session-pace">4:24<span class="pace-unit">/km</span></div>
+            <div class="session-details">
+              <div class="session-detail-item">Plan <span>8.0km</span></div>
+              <div class="session-detail-item">HR <span>Z5</span></div>
+            </div>
+          </div>
+          <div class="status-col">
+            <div class="status-dot dot-planned"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Easy — planned -->
+      <div class="session-card">
+        <div class="session-card-main">
+          <div class="type-col">
+            <div class="type-badge badge-easy">Easy</div>
+            <div class="session-date">Wed 16</div>
+          </div>
+          <div class="session-info">
+            <div class="session-pace">6:30<span class="pace-unit">/km</span></div>
+            <div class="session-details">
+              <div class="session-detail-item">Plan <span>8.0km</span></div>
+              <div class="session-detail-item">HR <span>Z2</span></div>
+            </div>
+          </div>
+          <div class="status-col">
+            <div class="status-dot dot-planned"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tempo — rescheduled (was Thu, now Sat) -->
+      <div class="session-card">
+        <div class="session-card-main">
+          <div class="type-col">
+            <div class="type-badge badge-tempo">Tempo</div>
+            <div class="session-date">Sat 19</div>
+          </div>
+          <div class="session-info">
+            <div class="session-pace">5:18<span class="pace-unit">/km</span></div>
+            <div class="session-details">
+              <div class="session-detail-item">Plan <span>10.0km</span></div>
+              <div class="session-detail-item">HR <span>Z3</span></div>
+              <div class="session-detail-item" style="color:var(--accent)">↪ moved</div>
+            </div>
+          </div>
+          <div class="status-col">
+            <div class="status-dot dot-planned"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Partial session -->
+      <div class="session-card">
+        <div class="session-card-main">
+          <div class="type-col">
+            <div class="type-badge badge-racepace">Race</div>
+            <div class="session-date">Sun 20</div>
+          </div>
+          <div class="session-info">
+            <div class="session-pace">4:44<span class="pace-unit">/km</span></div>
+            <div class="session-details">
+              <div class="session-detail-item">Plan <span>12.0km</span></div>
+              <div class="session-detail-item">HR <span>Z4</span></div>
+            </div>
+          </div>
+          <div class="status-col">
+            <div class="status-dot dot-planned"></div>
+          </div>
+        </div>
+      </div>
+
+      <button class="log-run-btn">+ Log Run</button>
+
+    </div>
+  </div>
+
+  <!-- Previous week (collapsed) -->
+  <div class="week-section week-collapsed">
+    <div class="week-header">
+      <div class="week-label">Week <span class="week-num">7</span> <span style="color:var(--muted);font-size:14px;font-family:'Instrument Sans',sans-serif;font-weight:400">of 13</span></div>
+      <div class="week-meta">7–13 Apr · 5/5 done</div>
+    </div>
+    <div class="session-list"></div>
+  </div>
+
+</div>
+
+<div class="annotation">Workouts tab · Section 5/6 · Percy the Pacer</div>
+
+</body>
+</html>

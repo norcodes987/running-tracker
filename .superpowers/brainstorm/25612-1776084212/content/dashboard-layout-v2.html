@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Percy the Pacer — Dashboard v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #080808;
+    --surface: #111111;
+    --border:  #1e1e1e;
+    --accent:  #C8FF00;
+    --danger:  #FF4444;
+    --warning: #FF9500;
+    --text:    #F5F5F5;
+    --muted:   #666666;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 14px;
+    max-width: 390px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+
+  .slim-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .app-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .race-countdown {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .race-countdown span { color: var(--text); }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-tab {
+    flex: 1;
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .nav-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .dashboard {
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 10px;
+  }
+
+  .widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+  }
+  .widget-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .section-full { grid-column: 1 / -1; }
+
+  /* Weekly distance */
+  .weekly-distance { display: flex; align-items: flex-start; gap: 12px; }
+  .distance-actual {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 36px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .distance-planned {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .distance-label-sm { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Est finish */
+  .finish-time-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 30px;
+    line-height: 1;
+  }
+  .finish-delta {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 6px;
+  }
+  .confidence-badge {
+    display: inline-block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 2px 5px;
+    margin-top: 6px;
+  }
+  .sparkline {
+    height: 24px;
+    margin-top: 8px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+  }
+  .spark-bar { flex: 1; background: var(--border); border-radius: 1px; }
+  .spark-bar.accent { background: var(--accent); opacity: 0.7; }
+  .spark-bar.accent.hi { background: var(--accent); opacity: 1; }
+
+  /* ── PACE TABLE with target ── */
+  .pace-table { width: 100%; }
+
+  .pace-header {
+    display: grid;
+    grid-template-columns: 72px 1fr 1fr 16px;
+    gap: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .pace-col-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-align: right;
+  }
+  .pace-col-label:first-child { text-align: left; }
+
+  .pace-row {
+    display: grid;
+    grid-template-columns: 72px 1fr 1fr 16px;
+    gap: 4px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pace-row:last-child { border-bottom: none; }
+
+  .session-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+
+  .pace-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    text-align: right;
+    padding-right: 4px;
+  }
+
+  .target-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    padding-right: 4px;
+  }
+
+  /* colour actual pace relative to target */
+  .pace-val.faster { color: var(--accent); }
+  .pace-val.slower { color: var(--warning); }
+  .pace-val.danger { color: var(--danger); }
+
+  .trend { font-size: 12px; text-align: center; }
+  .trend.up { color: var(--accent); }
+  .trend.stable { color: var(--muted); }
+  .trend.down { color: var(--danger); }
+
+  /* Completion rate */
+  .completion-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .completion-cell {
+    text-align: center;
+    padding: 10px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+  .completion-pct {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+  }
+  .completion-pct.warn { color: var(--danger); }
+  .completion-type {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .annotation {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    padding: 8px 0 16px;
+  }
+  .legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="slim-header">
+  <div class="app-name">PERCY</div>
+  <div class="race-countdown"><span>47</span> days · Run Melbourne HM</div>
+</div>
+
+<div class="nav">
+  <div class="nav-tab active">Dashboard</div>
+  <div class="nav-tab">Workouts</div>
+  <div class="nav-tab">Race</div>
+  <div class="nav-tab">Profile</div>
+</div>
+
+<div class="dashboard">
+
+  <!-- Top asymmetric grid -->
+  <div class="metrics-grid">
+    <div class="widget">
+      <div class="widget-title">This Week</div>
+      <div class="weekly-distance">
+        <svg width="52" height="52" viewBox="0 0 52 52" style="flex-shrink:0">
+          <circle cx="26" cy="26" r="22" fill="none" stroke="#1e1e1e" stroke-width="4"/>
+          <circle cx="26" cy="26" r="22" fill="none" stroke="#C8FF00" stroke-width="4"
+            stroke-dasharray="117 21" stroke-dashoffset="34.5" stroke-linecap="butt"
+            transform="rotate(-90 26 26)"/>
+        </svg>
+        <div>
+          <div class="distance-actual">32.4</div>
+          <div class="distance-planned">/ 38.0 km</div>
+          <div class="distance-label-sm">Mon–Sun</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="widget">
+      <div class="widget-title">Est. Finish</div>
+      <div class="finish-time-val">1:42:30</div>
+      <div class="finish-delta">−2:30 to goal</div>
+      <div class="sparkline">
+        <div class="spark-bar" style="height:40%"></div>
+        <div class="spark-bar" style="height:55%"></div>
+        <div class="spark-bar accent" style="height:50%"></div>
+        <div class="spark-bar accent" style="height:65%"></div>
+        <div class="spark-bar accent hi" style="height:80%"></div>
+      </div>
+      <div class="confidence-badge">Med confidence</div>
+    </div>
+  </div>
+
+  <!-- Pace widget: actual vs target -->
+  <div class="widget section-full">
+    <div class="widget-title">Avg Pace — 4-week rolling</div>
+    <div class="legend">
+      <span><span class="legend-dot" style="background:#F5F5F5"></span>Actual</span>
+      <span><span class="legend-dot" style="background:#444"></span>Target</span>
+      <span><span class="legend-dot" style="background:#C8FF00"></span>Ahead</span>
+      <span><span class="legend-dot" style="background:#FF9500"></span>Behind</span>
+    </div>
+    <div class="pace-table">
+      <div class="pace-header">
+        <span class="pace-col-label">Type</span>
+        <span class="pace-col-label">Actual</span>
+        <span class="pace-col-label">Target</span>
+        <span></span>
+      </div>
+      <div class="pace-row">
+        <div class="session-badge">Long run</div>
+        <div class="pace-val faster">6:12</div>
+        <div class="target-val">6:20 /km</div>
+        <div class="trend up">↑</div>
+      </div>
+      <div class="pace-row">
+        <div class="session-badge">Race pace</div>
+        <div class="pace-val">4:45</div>
+        <div class="target-val">4:44 /km</div>
+        <div class="trend stable">→</div>
+      </div>
+      <div class="pace-row">
+        <div class="session-badge">Tempo</div>
+        <div class="pace-val faster">5:02</div>
+        <div class="target-val">5:18 /km</div>
+        <div class="trend up">↑</div>
+      </div>
+      <div class="pace-row">
+        <div class="session-badge">Interval</div>
+        <div class="pace-val slower">4:29</div>
+        <div class="target-val">4:24 /km</div>
+        <div class="trend down">↓</div>
+      </div>
+      <div class="pace-row">
+        <div class="session-badge">Easy</div>
+        <div class="pace-val">6:45</div>
+        <div class="target-val">6:30 /km</div>
+        <div class="trend stable">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Rate -->
+  <div class="widget section-full">
+    <div class="widget-title">Completion Rate by Type</div>
+    <div class="completion-grid">
+      <div class="completion-cell">
+        <div class="completion-pct">91%</div>
+        <div class="completion-type">Long run</div>
+      </div>
+      <div class="completion-cell">
+        <div class="completion-pct">85%</div>
+        <div class="completion-type">Tempo</div>
+      </div>
+      <div class="completion-cell">
+        <div class="completion-pct warn">62%</div>
+        <div class="completion-type">Interval</div>
+      </div>
+      <div class="completion-cell">
+        <div class="completion-pct">78%</div>
+        <div class="completion-type">Race pace</div>
+      </div>
+      <div class="completion-cell">
+        <div class="completion-pct">88%</div>
+        <div class="completion-type">Easy</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="annotation">Dashboard v2 · Section 4/6 · Percy the Pacer</div>
+
+</body>
+</html>
