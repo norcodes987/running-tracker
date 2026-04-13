@@ -131,7 +131,7 @@ export const races = pgTable('races', {
   name:              text('name').notNull(),
   raceDate:          date('race_date').notNull(),
   location:          text('location'),
-  distanceKm:        real('distance_km').notNull().default(21.0975),
+  distanceKm:        real('distance_km').notNull(),  // set from user selection; no default
   goalTimeMinutes:   real('goal_time_minutes').notNull(),
   trainingStartDate: date('training_start_date').notNull(),
   fitnessLevel:      text('fitness_level').notNull(), // 'beginner' | 'building' | 'ready'
@@ -231,7 +231,12 @@ Triggered immediately after first login or after a race is completed. A full-scr
 **Step 1 — Race Details**
 - Race name (text)
 - Race date (date picker, must be future)
-- Race distance (select — Half Marathon 21.1km only)
+- Race distance (select + optional custom km input):
+  - 5K (5.0 km)
+  - 10K (10.0 km)
+  - Half Marathon (21.0975 km)
+  - Marathon (42.195 km)
+  - Custom (user enters distance in km)
 - Race location (text)
 - Training start date (date picker, defaults to tomorrow, must be < race date)
 
@@ -338,7 +343,7 @@ Sun  easy (base phase) | race_pace (build + peak phases)
 
 ### Phase structure (anchored to race date)
 ```
-Taper  last 2 weeks    60% → 40% of peak volume; long_run capped at 10km
+Taper  last 2 weeks    60% → 40% of peak volume; long_run capped at 50% of race distance
 Peak   weeks 3–4       highest volume (100% of peak)
 Build  weeks 5–9       +10% volume per week building toward peak
 Base   remaining       aerobic foundation, steady volume
@@ -347,12 +352,18 @@ Base   remaining       aerobic foundation, steady volume
 If training window < 13 weeks, phases compress proportionally. Taper (2 weeks) is always preserved.
 
 ### Peak week volume
+Peak week volume is determined by fitness level and race distance. The table below defines peak km for each combination:
+
 ```
-beginner  →  35 km
-building  →  50 km
-ready     →  65 km
+                  beginner   building   ready
+5K                  25 km      35 km    45 km
+10K                 30 km      42 km    55 km
+Half Marathon       35 km      50 km    65 km
+Marathon            55 km      75 km    95 km
+Custom              interpolated linearly by distanceKm between nearest brackets
 ```
-If Garmin 28-day chronic load is available, override: `peak = chronicLoad × 1.20`.
+
+If Garmin 28-day chronic load is available, override: `peak = chronicLoad × 1.20` (applies regardless of distance).
 
 ### Base phase starting volume
 Base phase starts at 60% of peak week volume and holds steady (no progression) until the build phase begins. Build phase then increases 10% per week from that 60% base up to 100% peak.
