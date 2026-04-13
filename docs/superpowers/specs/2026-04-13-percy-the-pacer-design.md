@@ -217,6 +217,7 @@ export const config = {
 ### Auth page design
 - Full-screen, centred, dark background (`#080808`)
 - Logo "PERCY" in Barlow Condensed + "Train smarter. Race faster." tagline
+- Accent colour `#F5C400` (Strava Gold) — logo, submit button, links
 - shadcn Form, Input, Button components
 - Inline error using shadcn Alert — not toast
 - Link between `/login` ↔ `/register`
@@ -635,12 +636,15 @@ Server-rendered with `"use cache"` (revalidate: daily). Content from active race
 --bg:      #080808;
 --surface: #111111;
 --border:  #1e1e1e;
---accent:  #C8FF00;   /* electric chartreuse — for data, not decoration */
+--accent:  #C8FF00;   /* electric chartreuse — data, metrics, nav active state */
+--auth-accent: #F5C400; /* strava gold — logo, CTA on /login and /register only */
 --danger:  #FF4444;
 --warning: #FF9500;
 --text:    #F5F5F5;
 --muted:   #666666;
 ```
+
+`--auth-accent` (`#F5C400`) is used exclusively on the `/login` and `/register` pages — logo colour, submit button, and link colour. All other surfaces use `--accent` (`#C8FF00`).
 
 **Typography:**
 - Display / metrics: `Barlow Condensed 700`
