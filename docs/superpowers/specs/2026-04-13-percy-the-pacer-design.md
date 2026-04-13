@@ -295,6 +295,11 @@ export function getDaysToRace(raceDate: Date) {
    - Delete all `training_sessions` rows for this race
    - Update `races`: `status = 'completed'`, write `actualTimeMinutes`, `notes`, `completedAt`
    - Redirect to Race Setup modal (for new race)
+5. On "Keep data for now":
+   - Update `races`: `status = 'completed'`, write `actualTimeMinutes`, `notes`, `completedAt`
+   - Do NOT delete sessions or plan changes
+   - Redirect to Race Setup modal (for new race)
+   - Sessions and plan changes orphaned — will be hard-deleted when the new race's setup completes
 
 ```ts
 // lib/race/complete-race.ts
@@ -348,6 +353,9 @@ building  →  50 km
 ready     →  65 km
 ```
 If Garmin 28-day chronic load is available, override: `peak = chronicLoad × 1.20`.
+
+### Base phase starting volume
+Base phase starts at 60% of peak week volume and holds steady (no progression) until the build phase begins. Build phase then increases 10% per week from that 60% base up to 100% peak.
 
 ### Pace seeding
 All target paces derived from `calculateTrainingPaces(racePaceSecPerKm)`:
@@ -461,6 +469,16 @@ acwr   = acute_load (last 7 days) / chronic_load (4-week rolling avg)
 0.8–1.3 → optimal
 1.3–1.5 → risk — swap next session to easy
 > 1.5   → danger — force Option B + rest day flag
+```
+
+Intensity factors by session type:
+```
+rest:      0.0
+easy:      1.0
+long_run:  1.2
+tempo:     1.5
+race_pace: 1.6
+interval:  1.8
 ```
 
 ### Option A — Rule-based (`lib/adaptive-plan/option-a-rules.ts`)
