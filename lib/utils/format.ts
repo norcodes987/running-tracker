@@ -2,8 +2,9 @@
 
 /** Convert seconds-per-km to "m:ss" string */
 export function formatPace(secPerKm: number): string {
-  const m = Math.floor(secPerKm / 60)
-  const s = secPerKm % 60
+  const rounded = Math.round(secPerKm)
+  const m = Math.floor(rounded / 60)
+  const s = rounded % 60
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
