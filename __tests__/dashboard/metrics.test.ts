@@ -120,3 +120,35 @@ describe('calcCompletionRateByType', () => {
     expect(easyRow.rate).toBe(50)
   })
 })
+
+describe('calcCompletionRateByType — streak', () => {
+  it('counts consecutive weeks below 70%', () => {
+    // Two weeks ago (Mon-Sun): 0/2 = 0%
+    // Last week: 0/2 = 0%
+    const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
+    const lastWeek    = new Date(Date.now() - 7  * 86400000).toISOString().slice(0, 10)
+    const sessions = [
+      makeSession({ date: twoWeeksAgo, type: 'easy', status: 'failed' }),
+      makeSession({ date: twoWeeksAgo, type: 'easy', status: 'failed' }),
+      makeSession({ date: lastWeek,    type: 'easy', status: 'failed' }),
+      makeSession({ date: lastWeek,    type: 'easy', status: 'failed' }),
+    ]
+    const rows = calcCompletionRateByType(sessions)
+    const easyRow = rows.find(r => r.type === 'easy')!
+    expect(easyRow.consecutiveWeeksBelow70).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('calcAvgPaceByType — trend', () => {
+  it('returns ↑ trend when recent pace is more than 5s/km faster', () => {
+    const recent  = new Date(Date.now() - 3  * 86400000).toISOString().slice(0, 10) // 3 days ago
+    const older   = new Date(Date.now() - 21 * 86400000).toISOString().slice(0, 10) // 21 days ago
+    const sessions = [
+      makeSession({ date: recent, type: 'easy', status: 'completed', actualPaceSecPerKm: 350 }),
+      makeSession({ date: older,  type: 'easy', status: 'completed', actualPaceSecPerKm: 370 }),
+    ]
+    const rows = calcAvgPaceByType(sessions, TARGET_PACES)
+    const easyRow = rows.find(r => r.type === 'easy')!
+    expect(easyRow.trend).toBe('↑')
+  })
+})

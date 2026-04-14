@@ -137,7 +137,7 @@ export function calcAvgPaceByType(
 const COMPLETION_TYPES = ['long_run', 'tempo', 'interval', 'easy'] as const
 
 function isoWeekKey(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = new Date(dateStr + 'T00:00:00Z')
   const dow = d.getUTCDay()
   const toMonday = dow === 0 ? 6 : dow - 1
   const mon = new Date(d)
