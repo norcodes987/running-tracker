@@ -50,8 +50,8 @@ function weekBoundsFromStart(trainingStartDate: string, weekNumber: number): { s
 }
 
 function formatWeekLabel(weekNumber: number, start: Date, end: Date): string {
-  const startStr = start.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
-  const endStr   = end.toLocaleDateString('en-GB', { day: 'numeric' })
+  const startStr = start.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  const endStr   = end.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'UTC' })
   return `Week ${weekNumber} · ${startStr}–${endStr}`
 }
 
@@ -97,7 +97,23 @@ export async function getSessionsByWeek(
 
   const [sessionRows, changeRows] = await Promise.all([
     db
-      .select()
+      .select({
+        id:                 trainingSessions.id,
+        date:               trainingSessions.date,
+        type:               trainingSessions.type,
+        distanceKm:         trainingSessions.distanceKm,
+        targetPaceSecPerKm: trainingSessions.targetPaceSecPerKm,
+        targetHrZone:       trainingSessions.targetHrZone,
+        status:             trainingSessions.status,
+        actualDistanceKm:   trainingSessions.actualDistanceKm,
+        actualPaceSecPerKm: trainingSessions.actualPaceSecPerKm,
+        actualAvgHr:        trainingSessions.actualAvgHr,
+        distanceScore:      trainingSessions.distanceScore,
+        paceScore:          trainingSessions.paceScore,
+        qualityScore:       trainingSessions.qualityScore,
+        notes:              trainingSessions.notes,
+        rescheduledFrom:    trainingSessions.rescheduledFrom,
+      })
       .from(trainingSessions)
       .where(
         and(
@@ -131,8 +147,22 @@ export async function getSessionsByWeek(
   }
 
   const rawSessions: RawSession[] = sessionRows.map(s => ({
-    ...s,
-    planChanges: changesBySession.get(s.id) ?? [],
+    id:                 s.id,
+    date:               s.date,
+    type:               s.type,
+    distanceKm:         s.distanceKm,
+    targetPaceSecPerKm: s.targetPaceSecPerKm,
+    targetHrZone:       s.targetHrZone,
+    status:             s.status,
+    actualDistanceKm:   s.actualDistanceKm,
+    actualPaceSecPerKm: s.actualPaceSecPerKm,
+    actualAvgHr:        s.actualAvgHr,
+    distanceScore:      s.distanceScore,
+    paceScore:          s.paceScore,
+    qualityScore:       s.qualityScore,
+    notes:              s.notes,
+    rescheduledFrom:    s.rescheduledFrom,
+    planChanges:        changesBySession.get(s.id) ?? [],
   }))
 
   return groupSessionsByWeek(rawSessions, trainingStartDate)
