@@ -37,7 +37,7 @@ function calcPaceBand(goalTimeMinutes: number, distanceKm: number): Array<{
     }
 
     rows.push({
-      label:      `${start}–${segEnd.toFixed(segKm < 5 ? 4 : 0)} km`,
+      label:      `${start}–${segEnd.toFixed(segKm < 5 ? 1 : 0)} km`,
       split:      fmtSec(splitSec),
       cumulative: fmtSec(cumSec),
     })
