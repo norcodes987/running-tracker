@@ -109,3 +109,7 @@
     --sidebar-ring:          hsl(75 100% 50%);
   }
 }
+
+@media (max-width: 374px) {
+  .nav-label { display: none; }
+}

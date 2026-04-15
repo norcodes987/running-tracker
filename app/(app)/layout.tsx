@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getActiveRace, getDaysToRace } from '@/lib/race/active-race'
 import { RaceSetupModal } from '@/components/race-setup/RaceSetupModal'
+import { AppNav } from '@/components/nav/AppNav'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -34,17 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
       </div>
 
-      {/* Sticky nav — stub, filled out in Phase 2 */}
-      <nav className="sticky top-0 z-50 flex border-b border-border bg-bg">
-        {['Dashboard', 'Workouts', 'Race', 'Profile'].map((tab) => (
-          <div
-            key={tab}
-            className="flex-1 py-3 text-center text-xs uppercase tracking-widest text-muted"
-          >
-            {tab}
-          </div>
-        ))}
-      </nav>
+      <AppNav />
 
       <main className="max-w-md mx-auto">
         {children}
