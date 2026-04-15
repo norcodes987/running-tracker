@@ -13,9 +13,10 @@ export function AdaptationBanner({ changes }: Props) {
   const latest = changes[changes.length - 1]
 
   return (
-    <div
-      className="mt-2 cursor-pointer rounded border-l-2 border-accent bg-surface px-3 py-2"
-      onClick={() => setExpanded(v => !v)}
+    <button
+      type="button"
+      className="mt-2 w-full cursor-pointer rounded border-l-2 border-accent bg-transparent px-3 py-2 text-left"
+      onClick={(e) => { e.stopPropagation(); setExpanded(v => !v) }}
     >
       <p className="text-xs text-accent">
         Plan adapted · {latest.optionUsed ?? 'Auto'}
@@ -23,6 +24,6 @@ export function AdaptationBanner({ changes }: Props) {
       {expanded && latest.reasoning && (
         <p className="mt-1 text-xs text-muted">{latest.reasoning}</p>
       )}
-    </div>
+    </button>
   )
 }

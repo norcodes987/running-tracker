@@ -51,8 +51,11 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className="cursor-pointer rounded-lg bg-surface p-3"
       onClick={() => setExpanded(v => !v)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpanded(v => !v) }}
     >
       {/* Collapsed row */}
       <div className="flex items-center gap-3">
