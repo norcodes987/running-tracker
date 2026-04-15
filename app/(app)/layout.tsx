@@ -1,8 +1,27 @@
+<<<<<<< HEAD
 import { Suspense } from 'react';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getActiveRace, getDaysToRace } from '@/lib/race/active-race';
 import { RaceSetupModal } from '@/components/race-setup/RaceSetupModal';
+=======
+import { auth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getActiveRace, getDaysToRace } from '@/lib/race/active-race'
+import { RaceSetupModal } from '@/components/race-setup/RaceSetupModal'
+import { AppNav } from '@/components/nav/AppNav'
+
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth()
+  if (!session?.user) redirect('/login')
+
+  const activeRace = await getActiveRace()
+  const needsSetup = !activeRace
+
+  const daysToRace = activeRace
+    ? getDaysToRace(activeRace.raceDate)
+    : null
+>>>>>>> feature/percy-phase-2-ui-tabs
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,6 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </Suspense>
       </div>
 
+<<<<<<< HEAD
       {/* 2. Static Nav Shell*/}
       <nav className='sticky top-0 z-50 flex border-b border-border bg-bg'>
         {['Dashboard', 'Workouts', 'Race', 'Profile'].map((tab) => (
@@ -35,6 +55,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </nav>
+=======
+      <AppNav />
+>>>>>>> feature/percy-phase-2-ui-tabs
 
       <Suspense
         fallback={
