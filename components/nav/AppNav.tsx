@@ -24,21 +24,24 @@ export function AppNav() {
   const router   = useRouter()
 
   function navigate(href: string) {
+    if (pathname === href || pathname.startsWith(href + '/')) return
     if ('startViewTransition' in document) {
-      document.startViewTransition(() => { router.push(href) })
+      ;(document as Document & { startViewTransition: (cb: () => void) => void })
+        .startViewTransition(() => { router.push(href) })
     } else {
       router.push(href)
     }
   }
 
   return (
-    <nav className="sticky top-0 z-50 flex border-b border-border bg-bg">
+    <nav className="sticky top-0 z-50 flex bg-bg">
       {TABS.map(({ label, href, Icon }) => {
         const active = pathname === href || pathname.startsWith(href + '/')
         return (
           <button
             key={href}
             onClick={() => navigate(href)}
+            aria-current={active ? 'page' : undefined}
             className={[
               'flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] uppercase tracking-widest transition-colors',
               active
