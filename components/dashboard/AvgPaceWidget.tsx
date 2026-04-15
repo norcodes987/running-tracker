@@ -36,7 +36,7 @@ export function AvgPaceWidget({ rows }: Props) {
                     <span className="ml-1 text-muted">{row.trend}</span>
                   )}
                 </td>
-                <td className={`py-1.5 text-right font-mono ${faster ? 'text-accent' : 'text-warning'}`}>
+                <td className={`py-1.5 text-right font-mono ${faster ? 'text-accent' : row.actualSecPerKm !== null ? 'text-warning' : ''}`}>
                   {isInterval
                     ? <span className="text-muted text-xs">use HR</span>
                     : row.actualSecPerKm !== null
