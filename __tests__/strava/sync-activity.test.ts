@@ -126,13 +126,13 @@ beforeEach(() => {
 
 describe('syncStravaActivity', () => {
   it('returns early if activity already synced (dedup guard)', async () => {
-    const { mockUpdate } = mockDb({ sessionForDedup: { ...SESSION, stravaActivityId: '123' } })
+    const { mockUpdate } = mockDb({ sessionForDedup: { ...SESSION, stravaActivityId: '123' as any } })
     await syncStravaActivity('user-1', 123)
     expect(fetchStravaActivity).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 
-  it('returns early if no matching planned session found within ±36h', async () => {
+  it('returns early if no session found within ±36h or 7-day fallback', async () => {
     // Session is 5 days away from the activity date
     const farSession = { ...SESSION, date: '2026-04-20' }
     const { mockUpdate } = mockDb({ sessions: [farSession] })
@@ -167,31 +167,6 @@ describe('syncStravaActivity', () => {
     expect(mockUpdate).toHaveBeenCalledTimes(2)
   })
 
-  it('logs orchestrator stub when quality score < 85', async () => {
-    ;(calculateQualityScore as any).mockReturnValue({
-      distanceScore: 50, paceScore: 50, qualityScore: 50, status: 'failed',
-    })
-    mockDb()
-    const consoleSpy = vi.spyOn(console, 'log')
-    await syncStravaActivity('user-1', 123)
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[orchestrator] stub'),
-      expect.any(String),
-      expect.stringContaining('quality:'),
-      50,
-    )
-  })
-
-  it('does not log orchestrator stub when quality score >= 85', async () => {
-    mockDb()
-    const consoleSpy = vi.spyOn(console, 'log')
-    await syncStravaActivity('user-1', 123)
-    const orchestratorCalls = consoleSpy.mock.calls.filter(c =>
-      String(c[0]).includes('[orchestrator]'),
-    )
-    expect(orchestratorCalls).toHaveLength(0)
-  })
-
   it('skips non-Run activity types', async () => {
     ;(fetchStravaActivity as any).mockResolvedValue({ ...ACTIVITY, type: 'Ride' })
     const { mockUpdate } = mockDb()
@@ -220,5 +195,54 @@ describe('syncStravaActivity', () => {
     await syncStravaActivity('user-1', 123)
     expect(refreshStravaToken).toHaveBeenCalledWith('ref-xyz')
     expect(fetchStravaActivity).toHaveBeenCalledWith('new-tok', 123)
+  })
+
+  describe('fallback matching (7-day window)', () => {
+    it('matches a planned session 3 days before the activity when no ±36h match', async () => {
+      // Activity: 2026-04-15T07:00:00Z  Session: 2026-04-12 (3 days prior, 75h away — outside ±36h)
+      const missedSession = { ...SESSION, id: 'sess-missed', date: '2026-04-12' }
+      const { mockSet } = mockDb({ sessions: [missedSession] })
+      await syncStravaActivity('user-1', 123)
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ stravaActivityId: '123' }),
+      )
+    })
+
+    it('does not match a session 8 days before the activity', async () => {
+      // 2026-04-07 is 8 days before 2026-04-15 — outside 7-day window
+      const oldSession = { ...SESSION, id: 'sess-old', date: '2026-04-07' }
+      const { mockUpdate } = mockDb({ sessions: [oldSession] })
+      await syncStravaActivity('user-1', 123)
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
+    it('does not match a future session via fallback', async () => {
+      // Sessions scheduled after the activity date are not missed — they are upcoming
+      const futureSession = { ...SESSION, id: 'sess-future', date: '2026-04-17' }
+      const { mockUpdate } = mockDb({ sessions: [futureSession] })
+      await syncStravaActivity('user-1', 123)
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
+    it('picks the most recent missed session when two are within 7 days', async () => {
+      // Both outside ±36h, both within 7 days — 2026-04-13 is more recent than 2026-04-11
+      const older  = { ...SESSION, id: 'sess-older',  date: '2026-04-11', distanceKm: 5 }
+      const recent = { ...SESSION, id: 'sess-recent', date: '2026-04-13', distanceKm: 8 }
+      mockDb({ sessions: [older, recent] })
+      await syncStravaActivity('user-1', 123)
+      // calculateQualityScore is called with the matched session's plannedKm
+      // If most-recent logic is correct, plannedKm should be 8 (from 2026-04-13 session)
+      expect(calculateQualityScore).toHaveBeenCalledWith(
+        expect.objectContaining({ plannedKm: 8 }),
+      )
+    })
+
+    it('does not match when sessions array is empty (partial/completed excluded by DB query)', async () => {
+      // In production the DB query filters status='planned', so partial/completed sessions
+      // are never in allSessions. Simulate this by providing an empty sessions array.
+      const { mockUpdate } = mockDb({ sessions: [] })
+      await syncStravaActivity('user-1', 123)
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
   })
 })

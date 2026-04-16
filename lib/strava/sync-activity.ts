@@ -101,17 +101,39 @@ export async function syncStravaActivity(
     return Math.abs(sessionTime - activityTime) <= WINDOW_MS
   })
 
-  if (candidates.length === 0) {
+  // 7b. If no ±36h match, look back up to 7 days for a missed planned session
+  let matched: (typeof allSessions)[0] | undefined
+
+  if (candidates.length > 0) {
+    // Pick nearest session within the ±36h window
+    matched = candidates.reduce((nearest, s) => {
+      const sDiff = Math.abs(new Date(s.date + 'T00:00:00Z').getTime() - activityTime)
+      const nDiff = Math.abs(new Date(nearest.date + 'T00:00:00Z').getTime() - activityTime)
+      return sDiff < nDiff ? s : nearest
+    })
+  } else {
+    // Fallback: most recent planned session in the past 7 days (makeup run)
+    const activityDayStart = new Date(activity.start_date)
+    activityDayStart.setUTCHours(0, 0, 0, 0)
+    const sevenDaysAgo = new Date(activityDayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+    const fallbackCandidates = allSessions
+      .filter((s) => {
+        const sessionDate = new Date(s.date + 'T00:00:00Z').getTime()
+        return sessionDate < activityDayStart.getTime() && sessionDate >= sevenDaysAgo.getTime()
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.date + 'T00:00:00Z').getTime() - new Date(a.date + 'T00:00:00Z').getTime(),
+      )
+
+    matched = fallbackCandidates[0]
+  }
+
+  if (!matched) {
     console.log('[sync] no matching session for activity', stravaActivityId)
     return
   }
-
-  // Pick nearest
-  const matched = candidates.reduce((nearest, s) => {
-    const sDiff = Math.abs(new Date(s.date + 'T00:00:00Z').getTime() - activityTime)
-    const nDiff = Math.abs(new Date(nearest.date + 'T00:00:00Z').getTime() - activityTime)
-    return sDiff < nDiff ? s : nearest
-  })
 
   // 8. Calculate quality score
   const activityPaceSec = speedToSecPerKm(activity.average_speed)
@@ -143,9 +165,4 @@ export async function syncStravaActivity(
     .update(userProfile)
     .set({ stravaLastSyncAt: new Date() })
     .where(eq(userProfile.userId, userId))
-
-  // 11. Orchestrator stub
-  if (result.qualityScore < 85) {
-    console.log('[orchestrator] stub — would trigger for session', matched.id, 'quality:', result.qualityScore)
-  }
 }
