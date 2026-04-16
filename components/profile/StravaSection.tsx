@@ -27,7 +27,8 @@ export function StravaSection({ isConnected, athleteName, lastSyncAt }: Props) {
     setSyncing(true)
     setSyncResult(null)
     try {
-      const res  = await fetch('/api/strava/sync', { method: 'POST' })
+      const res = await fetch('/api/strava/sync', { method: 'POST' })
+      if (!res.ok) throw new Error('Sync failed')
       const data = await res.json() as { synced: number; skipped: number }
       setSyncResult(data.synced === 0 ? 'Already up to date' : `Synced ${data.synced} run${data.synced === 1 ? '' : 's'}`)
     } catch {
@@ -40,8 +41,12 @@ export function StravaSection({ isConnected, athleteName, lastSyncAt }: Props) {
 
   async function handleDisconnect() {
     setDisconnecting(true)
-    await fetch('/api/strava/disconnect', { method: 'POST' })
-    router.refresh()
+    try {
+      await fetch('/api/strava/disconnect', { method: 'POST' })
+    } finally {
+      setDisconnecting(false)
+      router.refresh()
+    }
   }
 
   return (
