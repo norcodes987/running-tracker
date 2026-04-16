@@ -25,23 +25,33 @@ export async function GET(request: NextRequest) {
 
 // POST — Strava activity event
 export async function POST(request: NextRequest) {
-  const body = await request.json()
-
-  const { object_type, aspect_type, owner_id, object_id } = body as {
-    object_type: string
-    aspect_type: string
-    owner_id:    number
-    object_id:   number
+  let body: { object_type?: string; aspect_type?: string; owner_id?: unknown; object_id?: number }
+  try {
+    body = await request.json()
+  } catch {
+    // Malformed body — ack and discard
+    return NextResponse.json({ ok: true })
   }
+
+  const { object_type, aspect_type, owner_id, object_id } = body
 
   // Only process new run activity events
   if (object_type !== 'activity' || aspect_type !== 'create') {
     return NextResponse.json({ ok: true })
   }
 
-  // Resolve userId from stravaAthleteId
+  // Resolve userId from stravaAthleteId (coerce owner_id to number — Strava may send string)
+  const athleteId = Number(owner_id)
+  if (!Number.isFinite(athleteId)) {
+    return NextResponse.json({ ok: true })
+  }
+
+  if (!object_id || typeof object_id !== 'number') {
+    return NextResponse.json({ ok: true })
+  }
+
   const profile = await db.query.userProfile.findFirst({
-    where: eq(userProfile.stravaAthleteId, owner_id),
+    where: eq(userProfile.stravaAthleteId, athleteId),
   })
   if (!profile) {
     return NextResponse.json({ ok: true })
