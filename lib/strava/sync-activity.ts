@@ -9,7 +9,8 @@ import {
   type StravaActivity,
 } from '@/lib/strava/client'
 
-const WINDOW_MS = 36 * 60 * 60 * 1000 // ±36 hours in milliseconds
+const WINDOW_MS          = 36 * 60 * 60 * 1000 // ±36 hours in milliseconds
+const FALLBACK_WINDOW_MS =  7 * 24 * 60 * 60 * 1000 // 7-day makeup window
 
 async function ensureFreshToken(
   userId: string,
@@ -113,9 +114,8 @@ export async function syncStravaActivity(
     })
   } else {
     // Fallback: most recent planned session in the past 7 days (makeup run)
-    const activityDayStart = new Date(activity.start_date)
-    activityDayStart.setUTCHours(0, 0, 0, 0)
-    const sevenDaysAgo = new Date(activityDayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const activityDayStart = new Date(activity.start_date.slice(0, 10) + 'T00:00:00Z')
+    const sevenDaysAgo = new Date(activityDayStart.getTime() - FALLBACK_WINDOW_MS)
 
     const fallbackCandidates = allSessions
       .filter((s) => {
@@ -131,7 +131,7 @@ export async function syncStravaActivity(
   }
 
   if (!matched) {
-    console.log('[sync] no matching session for activity', stravaActivityId)
+    console.warn('[sync] no matching session for activity', stravaActivityId)
     return
   }
 

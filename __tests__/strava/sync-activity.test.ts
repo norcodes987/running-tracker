@@ -133,7 +133,8 @@ describe('syncStravaActivity', () => {
   })
 
   it('returns early if no session found within ±36h or 7-day fallback', async () => {
-    // Session is 5 days away from the activity date
+    // 2026-04-20 is 5 days in the FUTURE relative to the activity (2026-04-15)
+    // — above ±36h AND after the activity date, so the 7-day fallback also misses it
     const farSession = { ...SESSION, date: '2026-04-20' }
     const { mockUpdate } = mockDb({ sessions: [farSession] })
     await syncStravaActivity('user-1', 123)
@@ -214,6 +215,17 @@ describe('syncStravaActivity', () => {
       const { mockUpdate } = mockDb({ sessions: [oldSession] })
       await syncStravaActivity('user-1', 123)
       expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
+    it('matches a session on the exact 7-day boundary (2026-04-08)', async () => {
+      // sevenDaysAgo = activityDayStart(2026-04-15) - 7d = 2026-04-08T00:00:00Z
+      // the filter uses >= so a session on this exact day is included
+      const boundarySession = { ...SESSION, id: 'sess-boundary', date: '2026-04-08' }
+      const { mockSet } = mockDb({ sessions: [boundarySession] })
+      await syncStravaActivity('user-1', 123)
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ stravaActivityId: '123' }),
+      )
     })
 
     it('does not match a future session via fallback', async () => {
