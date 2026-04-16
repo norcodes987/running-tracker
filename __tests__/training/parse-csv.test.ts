@@ -58,4 +58,19 @@ describe('parsePlanCsv', () => {
     const result = parsePlanCsv(csv, 2026)
     expect(result[0].targetPaceSecPerKm).toBe(369)
   })
+
+  it('throws on invalid distance value', () => {
+    const csv = `date,type,km,target_pace\n16 Apr,easy,abc,6:09`
+    expect(() => parsePlanCsv(csv, 2026)).toThrow('invalid distance')
+  })
+
+  it('throws on invalid pace format', () => {
+    const csv = `date,type,km,target_pace\n16 Apr,easy,8.0,fast`
+    expect(() => parsePlanCsv(csv, 2026)).toThrow('Invalid pace')
+  })
+
+  it('throws on invalid date', () => {
+    const csv = `date,type,km,target_pace\n99 Xyz,easy,8.0,6:09`
+    expect(() => parsePlanCsv(csv, 2026)).toThrow('Invalid date')
+  })
 })
