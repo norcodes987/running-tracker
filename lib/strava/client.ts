@@ -33,10 +33,11 @@ export type StravaActivitySummary = {
 export async function exchangeCode(code: string): Promise<StravaTokenResponse> {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id:     process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id:     process.env.STRAVA_CLIENT_ID!,
+      client_secret: process.env.STRAVA_CLIENT_SECRET!,
       code,
       grant_type:    'authorization_code',
     }),
@@ -48,10 +49,11 @@ export async function exchangeCode(code: string): Promise<StravaTokenResponse> {
 export async function refreshStravaToken(refreshToken: string): Promise<StravaTokenResponse> {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id:     process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id:     process.env.STRAVA_CLIENT_ID!,
+      client_secret: process.env.STRAVA_CLIENT_SECRET!,
       refresh_token: refreshToken,
       grant_type:    'refresh_token',
     }),
@@ -62,6 +64,7 @@ export async function refreshStravaToken(refreshToken: string): Promise<StravaTo
 
 export async function fetchStravaActivity(accessToken: string, activityId: number): Promise<StravaActivity> {
   const res = await fetch(`${BASE}/activities/${activityId}`, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Strava fetch activity failed: ${res.status}`)
@@ -70,6 +73,7 @@ export async function fetchStravaActivity(accessToken: string, activityId: numbe
 
 export async function fetchStravaActivities(accessToken: string, perPage: number): Promise<StravaActivitySummary[]> {
   const res = await fetch(`${BASE}/athlete/activities?per_page=${perPage}`, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Strava fetch activities failed: ${res.status}`)
@@ -78,6 +82,7 @@ export async function fetchStravaActivities(accessToken: string, perPage: number
 
 export async function fetchStravaAthlete(accessToken: string): Promise<StravaAthlete> {
   const res = await fetch(`${BASE}/athlete`, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Strava fetch athlete failed: ${res.status}`)
@@ -87,10 +92,11 @@ export async function fetchStravaAthlete(accessToken: string): Promise<StravaAth
 export async function registerStravaWebhook(callbackUrl: string, verifyToken: string): Promise<number> {
   const res = await fetch(`${BASE}/push_subscriptions`, {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id:    process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id:     process.env.STRAVA_CLIENT_ID!,
+      client_secret: process.env.STRAVA_CLIENT_SECRET!,
       callback_url: callbackUrl,
       verify_token: verifyToken,
     }),
@@ -101,15 +107,16 @@ export async function registerStravaWebhook(callbackUrl: string, verifyToken: st
 }
 
 export async function deleteStravaWebhook(subscriptionId: number): Promise<void> {
+  const body = new URLSearchParams({
+    client_id:     process.env.STRAVA_CLIENT_ID!,
+    client_secret: process.env.STRAVA_CLIENT_SECRET!,
+  })
   const res = await fetch(`${BASE}/push_subscriptions/${subscriptionId}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id:     process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-    }),
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
   })
-  // 204 = success, 404 = already gone — both are fine
   if (!res.ok && res.status !== 404) {
     throw new Error(`Strava delete webhook failed: ${res.status}`)
   }
