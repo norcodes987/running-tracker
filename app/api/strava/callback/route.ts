@@ -23,23 +23,28 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Exchange code for tokens
-  const tokens = await exchangeCode(code)
+  let tokens, athlete, subscriptionId: number | null = null
 
-  // Fetch athlete name
-  const athlete = await fetchStravaAthlete(tokens.access_token)
-  const athleteName = `${athlete.firstname} ${athlete.lastname}`.trim()
+  try {
+    tokens = await exchangeCode(code)
+    athlete = await fetchStravaAthlete(tokens.access_token)
+  } catch (err) {
+    console.error('[strava] callback error:', err)
+    return NextResponse.redirect(
+      new URL('/profile?error=strava_error', process.env.AUTH_URL!),
+    )
+  }
+
+  const athleteName = `${athlete!.firstname} ${athlete!.lastname}`.trim()
 
   // Register webhook subscription
   const callbackUrl = `${process.env.AUTH_URL}/api/strava/webhook`
-  let subscriptionId: number | null = null
   try {
     subscriptionId = await registerStravaWebhook(
       callbackUrl,
       process.env.STRAVA_WEBHOOK_VERIFY_TOKEN!,
     )
   } catch (err) {
-    // Non-fatal: webhook registration can fail if already registered
     console.warn('[strava] webhook registration failed:', err)
   }
 
@@ -47,10 +52,10 @@ export async function GET(request: NextRequest) {
   await db
     .update(userProfile)
     .set({
-      stravaAccessToken:           tokens.access_token,
-      stravaRefreshToken:          tokens.refresh_token,
-      stravaTokenExpiry:           new Date(tokens.expires_at * 1000),
-      stravaAthleteId:             athlete.id,
+      stravaAccessToken:           tokens!.access_token,
+      stravaRefreshToken:          tokens!.refresh_token,
+      stravaTokenExpiry:           new Date(tokens!.expires_at * 1000),
+      stravaAthleteId:             athlete!.id,
       stravaAthleteName:           athleteName,
       stravaWebhookSubscriptionId: subscriptionId,
     })
