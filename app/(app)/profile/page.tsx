@@ -10,6 +10,7 @@ import { TrainingSummary }  from '@/components/profile/TrainingSummary'
 import { GoalTimeForm }     from '@/components/profile/GoalTimeForm'
 import { GarminUploadForm } from '@/components/profile/GarminUploadForm'
 import { EndRaceSection }   from '@/components/profile/EndRaceSection'
+import { StravaSection }    from '@/components/profile/StravaSection'
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -69,6 +70,12 @@ export default async function ProfilePage() {
       {race && <GoalTimeForm currentGoalTimeMinutes={race.goalTimeMinutes} />}
 
       <GarminUploadForm lastUpdated={profile?.updatedAt ?? null} />
+
+      <StravaSection
+        isConnected={!!profile?.stravaAccessToken}
+        athleteName={profile?.stravaAthleteName ?? null}
+        lastSyncAt={profile?.stravaLastSyncAt ?? null}
+      />
 
       <HrZonesDisplay maxHr={profile?.maxHr ?? null} age={profile?.age ?? null} />
 
