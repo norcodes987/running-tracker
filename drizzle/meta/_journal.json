@@ -8,6 +8,13 @@
       "when": 1776205747585,
       "tag": "0000_futuristic_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776299047307,
+      "tag": "0001_harsh_black_queen",
+      "breakpoints": true
     }
   ]
 }

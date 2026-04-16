@@ -45,18 +45,22 @@ export const verificationTokens = pgTable('verification_tokens', {
 // ── User physiological profile (persists across races) ──
 
 export const userProfile = pgTable('user_profile', {
-  id:                    text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId:                text('user_id').notNull().references(() => users.id).unique(),
-  maxHr:                 integer('max_hr'),
-  age:                   integer('age'),
-  thresholdPaceSecPerKm: integer('threshold_pace_sec_per_km'),
-  paceZones:             jsonb('pace_zones'),
-  hrZones:               jsonb('hr_zones'),
-  acwrBaseline:          real('acwr_baseline'),
-  stravaAccessToken:     text('strava_access_token'),
-  stravaRefreshToken:    text('strava_refresh_token'),
-  stravaTokenExpiry:     timestamp('strava_token_expiry'),
-  updatedAt:             timestamp('updated_at').defaultNow(),
+  id:                          text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId:                      text('user_id').notNull().references(() => users.id).unique(),
+  maxHr:                       integer('max_hr'),
+  age:                         integer('age'),
+  thresholdPaceSecPerKm:       integer('threshold_pace_sec_per_km'),
+  paceZones:                   jsonb('pace_zones'),
+  hrZones:                     jsonb('hr_zones'),
+  acwrBaseline:                real('acwr_baseline'),
+  stravaAccessToken:           text('strava_access_token'),
+  stravaRefreshToken:          text('strava_refresh_token'),
+  stravaTokenExpiry:           timestamp('strava_token_expiry'),
+  stravaAthleteId:             integer('strava_athlete_id'),
+  stravaAthleteName:           text('strava_athlete_name'),
+  stravaWebhookSubscriptionId: integer('strava_webhook_subscription_id'),
+  stravaLastSyncAt:            timestamp('strava_last_sync_at'),
+  updatedAt:                   timestamp('updated_at').defaultNow(),
 })
 
 // ── Races (one active at a time; completed rows = historical record) ──
