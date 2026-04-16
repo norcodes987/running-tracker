@@ -31,6 +31,13 @@ export async function POST(request: Request, { params }: Params) {
     if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
+
+    // File size limit (DoS protection)
+    const MAX_CSV_BYTES = 500_000 // 500 KB
+    if ((file as File).size > MAX_CSV_BYTES) {
+      return NextResponse.json({ error: 'File too large (max 500 KB)' }, { status: 413 })
+    }
+
     csvText = await (file as File).text()
   } catch {
     return NextResponse.json({ error: 'Failed to read file' }, { status: 400 })
@@ -48,31 +55,37 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  // Delete existing planned sessions for this race
-  await db
-    .delete(trainingSessions)
-    .where(
-      and(
-        eq(trainingSessions.raceId, raceId),
-        eq(trainingSessions.userId, userId),
-        eq(trainingSessions.status, 'planned'),
-      ),
-    )
-
-  // Insert new sessions
-  if (parsed.length > 0) {
-    await db.insert(trainingSessions).values(
-      parsed.map(s => ({
-        userId,
-        raceId,
-        date:               s.date,
-        type:               s.type,
-        distanceKm:         s.distanceKm,
-        targetPaceSecPerKm: s.targetPaceSecPerKm,
-        status:             'planned' as const,
-      })),
-    )
+  // Row count cap
+  if (parsed.length > 500) {
+    return NextResponse.json({ error: 'CSV exceeds maximum of 500 rows' }, { status: 422 })
   }
+
+  // Replace planned sessions atomically
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(trainingSessions)
+      .where(
+        and(
+          eq(trainingSessions.raceId, raceId),
+          eq(trainingSessions.userId, userId),
+          eq(trainingSessions.status, 'planned'),
+        ),
+      )
+
+    if (parsed.length > 0) {
+      await tx.insert(trainingSessions).values(
+        parsed.map(s => ({
+          userId,
+          raceId,
+          date:               s.date,
+          type:               s.type,
+          distanceKm:         s.distanceKm,
+          targetPaceSecPerKm: s.targetPaceSecPerKm,
+          status:             'planned' as const,
+        })),
+      )
+    }
+  })
 
   return NextResponse.json({ inserted: parsed.length })
 }
