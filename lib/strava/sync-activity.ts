@@ -2,15 +2,13 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { trainingSessions, userProfile, races } from '@/lib/db/schema'
-import { calculateQualityScore } from '@/lib/training/quality-score'
 import {
   fetchStravaActivity,
   refreshStravaToken,
   type StravaActivity,
 } from '@/lib/strava/client'
 
-const WINDOW_MS          = 36 * 60 * 60 * 1000 // ±36 hours in milliseconds
-const FALLBACK_WINDOW_MS =  7 * 24 * 60 * 60 * 1000 // 7-day makeup window
+const WINDOW_MS = 36 * 60 * 60 * 1000 // ±36 hours
 
 async function ensureFreshToken(
   userId: string,
@@ -39,7 +37,6 @@ function metresToKm(metres: number): number {
 }
 
 function speedToSecPerKm(speedMs: number): number {
-  // speed in m/s → sec/km
   return speedMs > 0 ? Math.round(1000 / speedMs) : 0
 }
 
@@ -62,7 +59,7 @@ export async function syncStravaActivity(
   })
   if (!profile?.stravaAccessToken || !profile.stravaRefreshToken) return
 
-  // 3. Get valid access token (refresh if needed)
+  // 3. Get valid access token
   const accessToken = await ensureFreshToken(
     userId,
     profile.stravaAccessToken,
@@ -73,7 +70,7 @@ export async function syncStravaActivity(
   // 4. Fetch activity from Strava
   const activity: StravaActivity = await fetchStravaActivity(accessToken, stravaActivityId)
 
-  // 5. Filter: only Run type, only ≥1.0 km
+  // 5. Filter: Run only, ≥1.0 km
   if (activity.type !== 'Run' && activity.type !== 'VirtualRun') return
   const activityKm = metresToKm(activity.distance)
   if (activityKm < 1.0) return
@@ -86,7 +83,7 @@ export async function syncStravaActivity(
 
   // 7. Match to nearest planned session within ±36h
   const activityTime = new Date(activity.start_date).getTime()
-  const allSessions = await db
+  const allSessions  = await db
     .select()
     .from(trainingSessions)
     .where(
@@ -102,65 +99,52 @@ export async function syncStravaActivity(
     return Math.abs(sessionTime - activityTime) <= WINDOW_MS
   })
 
-  // 7b. If no ±36h match, look back up to 7 days for a missed planned session
-  let matched: (typeof allSessions)[0] | undefined
-
-  if (candidates.length > 0) {
-    // Pick nearest session within the ±36h window
-    matched = candidates.reduce((nearest, s) => {
-      const sDiff = Math.abs(new Date(s.date + 'T00:00:00Z').getTime() - activityTime)
-      const nDiff = Math.abs(new Date(nearest.date + 'T00:00:00Z').getTime() - activityTime)
-      return sDiff < nDiff ? s : nearest
-    })
-  } else {
-    // Fallback: most recent planned session in the past 7 days (makeup run)
-    const activityDayStart = new Date(activity.start_date.slice(0, 10) + 'T00:00:00Z')
-    const sevenDaysAgo = new Date(activityDayStart.getTime() - FALLBACK_WINDOW_MS)
-
-    const fallbackCandidates = allSessions
-      .filter((s) => {
-        const sessionDate = new Date(s.date + 'T00:00:00Z').getTime()
-        return sessionDate < activityDayStart.getTime() && sessionDate >= sevenDaysAgo.getTime()
+  const matched = candidates.length > 0
+    ? candidates.reduce((nearest, s) => {
+        const sDiff = Math.abs(new Date(s.date + 'T00:00:00Z').getTime() - activityTime)
+        const nDiff = Math.abs(new Date(nearest.date + 'T00:00:00Z').getTime() - activityTime)
+        return sDiff < nDiff ? s : nearest
       })
-      .sort(
-        (a, b) =>
-          new Date(b.date + 'T00:00:00Z').getTime() - new Date(a.date + 'T00:00:00Z').getTime(),
-      )
+    : undefined
 
-    matched = fallbackCandidates[0]
-  }
+  const activityPaceSec = speedToSecPerKm(activity.average_speed)
+  const avgHr = activity.average_heartrate ? Math.round(activity.average_heartrate) : null
 
   if (!matched) {
-    console.warn('[sync] no matching session for activity', stravaActivityId)
-    return
-  }
-
-  // 8. Calculate quality score
-  const activityPaceSec = speedToSecPerKm(activity.average_speed)
-  const result = calculateQualityScore({
-    type:               matched.type as Parameters<typeof calculateQualityScore>[0]['type'],
-    plannedKm:          matched.distanceKm,
-    actualKm:           activityKm,
-    targetPaceSecPerKm: matched.targetPaceSecPerKm ?? activityPaceSec,
-    actualPaceSecPerKm: activityPaceSec,
-  })
-
-  // 9. Write actuals to session
-  await db
-    .update(trainingSessions)
-    .set({
+    // 8a. No plan match — insert as bonus session
+    await db.insert(trainingSessions).values({
+      userId,
+      raceId:             race.id,
+      date:               activity.start_date.slice(0, 10),
+      type:               'bonus',
+      distanceKm:         activityKm,
+      status:             'completed',
       actualDistanceKm:   activityKm,
       actualPaceSecPerKm: activityPaceSec,
-      actualAvgHr:        activity.average_heartrate ? Math.round(activity.average_heartrate) : null,
-      distanceScore:      result.distanceScore,
-      paceScore:          result.paceScore,
-      qualityScore:       result.qualityScore,
-      status:             result.status,
+      actualAvgHr:        avgHr,
       stravaActivityId:   String(stravaActivityId),
     })
-    .where(eq(trainingSessions.id, matched.id))
+  } else {
+    // 8b. Manual override guard — skip actuals write if user overrode this session
+    if (!matched.notes?.startsWith('__manual__')) {
+      const distanceScore = Math.min(100, Math.round((activityKm / matched.distanceKm) * 100))
+      const status = activityKm >= matched.distanceKm ? 'completed' : 'partial'
 
-  // 10. Update last sync timestamp
+      await db
+        .update(trainingSessions)
+        .set({
+          actualDistanceKm:   activityKm,
+          actualPaceSecPerKm: activityPaceSec,
+          actualAvgHr:        avgHr,
+          distanceScore,
+          status,
+          stravaActivityId:   String(stravaActivityId),
+        })
+        .where(eq(trainingSessions.id, matched.id))
+    }
+  }
+
+  // 9. Update last sync timestamp
   await db
     .update(userProfile)
     .set({ stravaLastSyncAt: new Date() })
