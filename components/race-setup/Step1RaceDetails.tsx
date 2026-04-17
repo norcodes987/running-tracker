@@ -21,7 +21,7 @@ const schema = z.object({
   raceDate:          z.string().min(1, 'Race date is required').refine(
     d => new Date(d) > new Date(), 'Race date must be in the future'
   ),
-  distanceKm:        z.number({ invalid_type_error: 'Select a distance' }).positive(),
+  distanceKm:        z.number({ error: 'Select a distance' }).positive(),
   location:          z.string().optional(),
   trainingStartDate: z.string().min(1, 'Training start date is required'),
 })

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 const schema = z.object({
-  age:   z.number({ invalid_type_error: 'Age is required' }).int().min(10).max(100),
+  age:   z.number({ error: 'Age is required' }).int().min(10).max(100),
   maxHr: z.number().int().min(100).max(250).optional(),
 })
 
