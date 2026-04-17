@@ -1,19 +1,19 @@
 // app/(app)/dashboard/page.tsx
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
-import { getActiveRace, getRacePaceSecPerKm } from '@/lib/race/active-race'
+import { auth }              from '@/lib/auth'
+import { redirect }          from 'next/navigation'
+import { getActiveRace }     from '@/lib/race/active-race'
 import { getDashboardSessions } from '@/lib/dashboard/queries'
 import {
   calcWeeklyDistance,
-  calcEstimatedFinish,
   calcAvgPaceByType,
   calcCompletionRateByType,
 } from '@/lib/dashboard/metrics'
-import { calculateTrainingPaces } from '@/lib/training/pace-calculator'
-import { WeeklyDistanceWidget }   from '@/components/dashboard/WeeklyDistanceWidget'
-import { EstimatedFinishWidget }  from '@/components/dashboard/EstimatedFinishWidget'
-import { AvgPaceWidget }          from '@/components/dashboard/AvgPaceWidget'
-import { CompletionRateWidget }   from '@/components/dashboard/CompletionRateWidget'
+import { db }                from '@/lib/db'
+import { userProfile }       from '@/lib/db/schema'
+import { eq }                from 'drizzle-orm'
+import { WeeklyDistanceWidget }  from '@/components/dashboard/WeeklyDistanceWidget'
+import { AvgPaceWidget }         from '@/components/dashboard/AvgPaceWidget'
+import { CompletionRateWidget }  from '@/components/dashboard/CompletionRateWidget'
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -28,31 +28,24 @@ export default async function DashboardPage() {
     )
   }
 
-  const paceSecPerKm = getRacePaceSecPerKm(race.goalTimeMinutes, race.distanceKm)
-  const targetPaces  = calculateTrainingPaces(paceSecPerKm)
-  const sessions     = await getDashboardSessions(session.user.id, race.id)
+  const [sessions, profile] = await Promise.all([
+    getDashboardSessions(session.user.id, race.id),
+    db.query.userProfile.findFirst({ where: eq(userProfile.userId, session.user.id) }),
+  ])
 
-  const weeklyDist    = calcWeeklyDistance(sessions)
-  const estFinish     = calcEstimatedFinish(sessions, race.distanceKm, race.goalTimeMinutes, targetPaces)
-  const avgPace       = calcAvgPaceByType(sessions, targetPaces)
-  const completionRate = calcCompletionRateByType(sessions)
+  const paceZones   = (profile?.paceZones ?? {}) as Record<string, number>
+  const weeklyDist  = calcWeeklyDistance(sessions)
+  const avgPace     = calcAvgPaceByType(sessions, paceZones)
+  const completion  = calcCompletionRateByType(sessions)
 
   return (
     <div className="flex flex-col gap-3 p-4">
-      <div className="grid grid-cols-2 gap-3">
-        <WeeklyDistanceWidget
-          actualKm={weeklyDist.actualKm}
-          targetKm={weeklyDist.targetKm}
-        />
-        <EstimatedFinishWidget
-          estMinutes={estFinish.estMinutes}
-          deltaMinutes={estFinish.deltaMinutes}
-          confidence={estFinish.confidence}
-          goalTimeMinutes={race.goalTimeMinutes}
-        />
-      </div>
+      <WeeklyDistanceWidget
+        actualKm={weeklyDist.actualKm}
+        targetKm={weeklyDist.targetKm}
+      />
       <AvgPaceWidget rows={avgPace} />
-      <CompletionRateWidget rows={completionRate} />
+      <CompletionRateWidget rows={completion} />
     </div>
   )
 }
