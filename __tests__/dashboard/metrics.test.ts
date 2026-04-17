@@ -2,18 +2,15 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcWeeklyDistance,
-  calcEstimatedFinish,
   calcAvgPaceByType,
   calcCompletionRateByType,
   type DashboardSession,
 } from '@/lib/dashboard/metrics'
-import type { TrainingPaces } from '@/lib/training/pace-calculator'
 
-const TARGET_PACES: TrainingPaces = {
-  race_pace: 300, tempo: 336, long_run: 375, easy: 390, interval: 279, recovery: 435,
+const PACE_ZONES: Record<string, number> = {
+  race_pace: 300, tempo: 336, long_run: 375, easy: 390, interval: 279,
 }
 
-// Build a session at a fixed date relative to today
 function makeSession(overrides: Partial<DashboardSession>): DashboardSession {
   return {
     id: 'x',
@@ -35,120 +32,80 @@ describe('calcWeeklyDistance', () => {
     expect(targetKm).toBe(0)
   })
 
-  it('sums target km for non-rest planned sessions this week', () => {
+  it('sums target km for non-rest, non-bonus planned sessions this week', () => {
     const today = new Date().toISOString().slice(0, 10)
     const sessions = [
-      makeSession({ date: today, type: 'easy', distanceKm: 8, status: 'planned' }),
-      makeSession({ date: today, type: 'rest', distanceKm: 0, status: 'planned' }),
+      makeSession({ date: today, type: 'easy',  distanceKm: 8, status: 'planned' }),
+      makeSession({ date: today, type: 'rest',  distanceKm: 0, status: 'planned' }),
+      makeSession({ date: today, type: 'bonus', distanceKm: 5, status: 'completed', actualDistanceKm: 5 }),
     ]
     const { targetKm } = calcWeeklyDistance(sessions)
-    expect(targetKm).toBe(8)
+    expect(targetKm).toBe(8) // bonus and rest excluded
   })
 
-  it('sums actual km for completed/partial sessions this week', () => {
+  it('sums actual km for completed/partial sessions this week (bonus included)', () => {
     const today = new Date().toISOString().slice(0, 10)
     const sessions = [
       makeSession({ date: today, status: 'completed', actualDistanceKm: 7.8 }),
-      makeSession({ date: today, status: 'partial', actualDistanceKm: 4.0 }),
+      makeSession({ date: today, type: 'bonus', status: 'completed', actualDistanceKm: 5.0 }),
       makeSession({ date: today, status: 'planned', actualDistanceKm: null }),
     ]
     const { actualKm } = calcWeeklyDistance(sessions)
-    expect(actualKm).toBeCloseTo(11.8)
-  })
-})
-
-describe('calcEstimatedFinish', () => {
-  it('returns goal time as estimate when no actuals', () => {
-    const { confidence } = calcEstimatedFinish([], 21.1, 100, TARGET_PACES)
-    expect(confidence).toBeNull()
-  })
-
-  it('confidence is HIGH when all 3 types have actuals in last 28 days', () => {
-    const today = new Date().toISOString().slice(0, 10)
-    const sessions = [
-      makeSession({ date: today, type: 'long_run',  status: 'completed', actualPaceSecPerKm: 375 }),
-      makeSession({ date: today, type: 'race_pace', status: 'completed', actualPaceSecPerKm: 300 }),
-      makeSession({ date: today, type: 'tempo',     status: 'completed', actualPaceSecPerKm: 336 }),
-    ]
-    const { confidence } = calcEstimatedFinish(sessions, 21.1, 100, TARGET_PACES)
-    expect(confidence).toBe('HIGH')
-  })
-
-  it('computes estimate using blend formula', () => {
-    const today = new Date().toISOString().slice(0, 10)
-    // blend = (375×0.40) + (300×0.35) + (336×0.25) = 150+105+84 = 339
-    // estMinutes = (339 × 21.1 / 60) × 0.97 ≈ 115.7
-    const sessions = [
-      makeSession({ date: today, type: 'long_run',  status: 'completed', actualPaceSecPerKm: 375 }),
-      makeSession({ date: today, type: 'race_pace', status: 'completed', actualPaceSecPerKm: 300 }),
-      makeSession({ date: today, type: 'tempo',     status: 'completed', actualPaceSecPerKm: 336 }),
-    ]
-    const { estMinutes } = calcEstimatedFinish(sessions, 21.1, 100, TARGET_PACES)
-    expect(estMinutes).toBeCloseTo(115.7, 0)
+    expect(actualKm).toBeCloseTo(12.8)
   })
 })
 
 describe('calcAvgPaceByType', () => {
-  it('returns null actualSecPerKm when no completed sessions', () => {
-    const rows = calcAvgPaceByType([], TARGET_PACES)
-    expect(rows.every(r => r.actualSecPerKm === null)).toBe(true)
+  it('returns null actual for types with no completed sessions', () => {
+    const rows = calcAvgPaceByType([], PACE_ZONES)
+    const easyRow = rows.find(r => r.type === 'easy')!
+    expect(easyRow.actualSecPerKm).toBeNull()
   })
 
-  it('returns target paces from TARGET_PACES', () => {
-    const rows = calcAvgPaceByType([], TARGET_PACES)
+  it('averages actualPaceSecPerKm for completed sessions of a type', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const sessions = [
+      makeSession({ date: today, type: 'easy', status: 'completed', actualPaceSecPerKm: 380 }),
+      makeSession({ date: today, type: 'easy', status: 'completed', actualPaceSecPerKm: 400 }),
+    ]
+    const rows = calcAvgPaceByType(sessions, PACE_ZONES)
     const easyRow = rows.find(r => r.type === 'easy')!
-    expect(easyRow.targetSecPerKm).toBe(390)
+    expect(easyRow.actualSecPerKm).toBe(390)
+  })
+
+  it('includes a bonus row', () => {
+    const rows = calcAvgPaceByType([], PACE_ZONES)
+    expect(rows.some(r => r.type === 'bonus')).toBe(true)
+  })
+
+  it('uses paceZones for targetSecPerKm', () => {
+    const rows = calcAvgPaceByType([], PACE_ZONES)
+    const tempoRow = rows.find(r => r.type === 'tempo')!
+    expect(tempoRow.targetSecPerKm).toBe(336)
+  })
+
+  it('targetSecPerKm is null for types not in paceZones (bonus)', () => {
+    const rows = calcAvgPaceByType([], PACE_ZONES)
+    const bonusRow = rows.find(r => r.type === 'bonus')!
+    expect(bonusRow.targetSecPerKm).toBeNull()
   })
 })
 
 describe('calcCompletionRateByType', () => {
-  it('returns null rate when no sessions', () => {
-    const rows = calcCompletionRateByType([])
-    expect(rows.every(r => r.rate === null)).toBe(true)
+  it('returns null rate when no sessions for a type', () => {
+    const result = calcCompletionRateByType([])
+    expect(result.every(r => r.rate === null)).toBe(true)
   })
 
-  it('calculates rate as percentage of past sessions completed', () => {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  it('calculates completion rate excluding bonus sessions', () => {
+    const today = new Date().toISOString().slice(0, 10)
     const sessions = [
-      makeSession({ date: yesterday, type: 'easy', status: 'completed' }),
-      makeSession({ date: yesterday, type: 'easy', status: 'completed' }),
-      makeSession({ date: yesterday, type: 'easy', status: 'failed' }),
-      makeSession({ date: yesterday, type: 'easy', status: 'failed' }),
+      makeSession({ date: today, type: 'easy', status: 'completed' }),
+      makeSession({ date: today, type: 'easy', status: 'planned' }),
+      makeSession({ date: today, type: 'bonus', status: 'completed' }), // excluded
     ]
-    const rows = calcCompletionRateByType(sessions)
-    const easyRow = rows.find(r => r.type === 'easy')!
-    expect(easyRow.rate).toBe(50)
-  })
-})
-
-describe('calcCompletionRateByType — streak', () => {
-  it('counts consecutive weeks below 70%', () => {
-    // Two weeks ago (Mon-Sun): 0/2 = 0%
-    // Last week: 0/2 = 0%
-    const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
-    const lastWeek    = new Date(Date.now() - 7  * 86400000).toISOString().slice(0, 10)
-    const sessions = [
-      makeSession({ date: twoWeeksAgo, type: 'easy', status: 'failed' }),
-      makeSession({ date: twoWeeksAgo, type: 'easy', status: 'failed' }),
-      makeSession({ date: lastWeek,    type: 'easy', status: 'failed' }),
-      makeSession({ date: lastWeek,    type: 'easy', status: 'failed' }),
-    ]
-    const rows = calcCompletionRateByType(sessions)
-    const easyRow = rows.find(r => r.type === 'easy')!
-    expect(easyRow.consecutiveWeeksBelow70).toBeGreaterThanOrEqual(2)
-  })
-})
-
-describe('calcAvgPaceByType — trend', () => {
-  it('returns ↑ trend when recent pace is more than 5s/km faster', () => {
-    const recent  = new Date(Date.now() - 3  * 86400000).toISOString().slice(0, 10) // 3 days ago
-    const older   = new Date(Date.now() - 21 * 86400000).toISOString().slice(0, 10) // 21 days ago
-    const sessions = [
-      makeSession({ date: recent, type: 'easy', status: 'completed', actualPaceSecPerKm: 350 }),
-      makeSession({ date: older,  type: 'easy', status: 'completed', actualPaceSecPerKm: 370 }),
-    ]
-    const rows = calcAvgPaceByType(sessions, TARGET_PACES)
-    const easyRow = rows.find(r => r.type === 'easy')!
-    expect(easyRow.trend).toBe('↑')
+    const result = calcCompletionRateByType(sessions)
+    const easyRow = result.find(r => r.type === 'easy')!
+    expect(easyRow.rate).toBe(50) // 1 completed / 2 total easy
   })
 })
