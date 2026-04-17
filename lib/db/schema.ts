@@ -102,6 +102,7 @@ export const trainingSessions = pgTable('training_sessions', {
   qualityScore:       integer('quality_score'),
   stravaActivityId:   text('strava_activity_id'),
   notes:              text('notes'),
+  splits:             jsonb('splits').$type<import('@/lib/types/splits').IntervalSplits>(),
   rescheduledFrom:    text('rescheduled_from'),
   createdAt:          timestamp('created_at').defaultNow(),
 })
