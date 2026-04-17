@@ -105,6 +105,8 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
     if (isNaN(reps) || reps <= 0)   { setSaveError('Enter number of reps'); return }
     if (isNaN(repKm) || repKm <= 0) { setSaveError('Enter rep distance'); return }
     if (!avgPac)                     { setSaveError('Enter interval pace as mm:ss'); return }
+    if (!isNaN(wuKm) && wuKm > 0 && !wuPac)  { setSaveError('Enter warm-up pace as mm:ss'); return }
+    if (!isNaN(cdKm) && cdKm > 0 && !cdPac)  { setSaveError('Enter cool-down pace as mm:ss'); return }
 
     const splits: IntervalSplits = {
       warmup:    (!isNaN(wuKm) && wuKm > 0 && wuPac) ? { km: wuKm, paceSec: wuPac } : null,

@@ -12,21 +12,30 @@ type PatchBody = {
   splits?: unknown
 }
 
+function isValidSection(v: unknown): v is { km: number; paceSec: number } {
+  if (typeof v !== 'object' || v === null) return false
+  const s = v as Record<string, unknown>
+  return typeof s.km === 'number' && typeof s.paceSec === 'number'
+}
+
 function isIntervalSplits(v: unknown): v is IntervalSplits {
   if (typeof v !== 'object' || v === null) return false
   const s = v as Record<string, unknown>
   if (typeof s.intervals !== 'object' || s.intervals === null) return false
   const iv = s.intervals as Record<string, unknown>
-  return (
-    typeof iv.reps === 'number' &&
-    typeof iv.repKm === 'number' &&
-    typeof iv.avgPaceSec === 'number'
-  )
+  if (
+    typeof iv.reps !== 'number' ||
+    typeof iv.repKm !== 'number' ||
+    typeof iv.avgPaceSec !== 'number'
+  ) return false
+  if (s.warmup !== null && s.warmup !== undefined && !isValidSection(s.warmup)) return false
+  if (s.cooldown !== null && s.cooldown !== undefined && !isValidSection(s.cooldown)) return false
+  return true
 }
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -38,9 +47,11 @@ export async function PATCH(
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
+  const { id } = await params
+
   const existing = await db.query.trainingSessions.findFirst({
     where: and(
-      eq(trainingSessions.id, params.id),
+      eq(trainingSessions.id, id),
       eq(trainingSessions.userId, userId),
     ),
   })
@@ -73,7 +84,7 @@ export async function PATCH(
         splits:             sp,
         notes:              '__manual__' + prevNotes,
       })
-      .where(eq(trainingSessions.id, params.id))
+      .where(eq(trainingSessions.id, id))
 
     return NextResponse.json({ ok: true })
   }
