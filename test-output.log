@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/running-tracker/.worktrees/phase-3-strava
+
+
+ Test Files  9 passed (9)
+      Tests  79 passed (79)
+   Start at  16:50:40
+   Duration  52.31s (transform 5.10s, setup 40.77s, import 11.35s, tests 278ms, environment 271.01s)
+

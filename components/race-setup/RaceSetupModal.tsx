@@ -51,16 +51,15 @@ export function RaceSetupModal({ open }: Props) {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/workouts')
     router.refresh()
   }
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={() => {}} dismissible={false}>
       <DialogContent
         className="bg-surface border-border max-w-md w-full"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        showCloseButton={false}
       >
         <DialogHeader>
           {/* Step indicator */}
@@ -89,7 +88,7 @@ export function RaceSetupModal({ open }: Props) {
           </DialogTitle>
           <p className="text-xs text-muted">
             {step === 1 && "Tell us about the race you're training for"}
-            {step === 2 && "We'll build your plan around these"}
+            {step === 2 && "We'll use these to personalise your paces"}
             {step === 3 && 'Personalises your HR zones and target paces'}
           </p>
         </DialogHeader>
