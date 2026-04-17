@@ -1,6 +1,6 @@
 // __tests__/sessions/grouping.test.ts
 import { describe, it, expect } from 'vitest'
-import { groupSessionsByWeek, type RawSession } from '@/lib/sessions/queries'
+import { groupSessionsByWeek, getBonusSessions, type RawSession } from '@/lib/sessions/queries'
 
 function makeSession(overrides: Partial<RawSession>): RawSession {
   return {
@@ -73,5 +73,11 @@ describe('groupSessionsByWeek', () => {
     // "Week 1 · Apr 14–19" — trainingStartDate Mon Apr 14
     expect(groups[0].weekLabel).toMatch(/Week 1/)
     expect(groups[0].weekLabel).toMatch(/Apr/)
+  })
+})
+
+describe('getBonusSessions (unit — pure filter)', () => {
+  it('is exported from lib/sessions/queries', () => {
+    expect(typeof getBonusSessions).toBe('function')
   })
 })

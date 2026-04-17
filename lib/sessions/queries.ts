@@ -91,7 +91,7 @@ export async function getSessionsByWeek(
   raceId: string,
   trainingStartDate: string,
 ): Promise<WeekGroup[]> {
-  const { eq, and } = await import('drizzle-orm')
+  const { eq, and, ne } = await import('drizzle-orm')
   const { db } = await import('@/lib/db')
   const { trainingSessions, planChanges } = await import('@/lib/db/schema')
 
@@ -119,6 +119,7 @@ export async function getSessionsByWeek(
         and(
           eq(trainingSessions.userId, userId),
           eq(trainingSessions.raceId, raceId),
+          ne(trainingSessions.type, 'bonus'),
         ),
       ),
     db
@@ -166,4 +167,42 @@ export async function getSessionsByWeek(
   }))
 
   return groupSessionsByWeek(rawSessions, trainingStartDate)
+}
+
+export type BonusSession = {
+  id:                 string
+  date:               string
+  actualDistanceKm:   number | null
+  actualPaceSecPerKm: number | null
+  actualAvgHr:        number | null
+  stravaActivityId:   string | null
+}
+
+export async function getBonusSessions(
+  userId: string,
+  raceId: string,
+): Promise<BonusSession[]> {
+  const { eq, and } = await import('drizzle-orm')
+  const { db } = await import('@/lib/db')
+  const { trainingSessions } = await import('@/lib/db/schema')
+
+  const rows = await db
+    .select({
+      id:                 trainingSessions.id,
+      date:               trainingSessions.date,
+      actualDistanceKm:   trainingSessions.actualDistanceKm,
+      actualPaceSecPerKm: trainingSessions.actualPaceSecPerKm,
+      actualAvgHr:        trainingSessions.actualAvgHr,
+      stravaActivityId:   trainingSessions.stravaActivityId,
+    })
+    .from(trainingSessions)
+    .where(
+      and(
+        eq(trainingSessions.userId, userId),
+        eq(trainingSessions.raceId, raceId),
+        eq(trainingSessions.type, 'bonus'),
+      ),
+    )
+
+  return rows.sort((a, b) => b.date.localeCompare(a.date))
 }
