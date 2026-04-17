@@ -3,6 +3,7 @@ export type ParsedSession = {
   type:               string
   distanceKm:         number
   targetPaceSecPerKm: number
+  notes:              string | null
 }
 
 const VALID_TYPES = new Set(['easy', 'tempo', 'interval', 'long_run', 'race_pace'])
@@ -42,10 +43,11 @@ export function parsePlanCsv(csvText: string, year: number): ParsedSession[] {
   if (lines.length < 2) throw new Error('CSV must have a header and at least one data row')
 
   const header = lines[0].toLowerCase().split(',').map(h => h.trim())
-  const dateIdx = header.indexOf('date')
-  const typeIdx = header.indexOf('type')
-  const kmIdx   = header.findIndex(h => h === 'km' || h === 'distance_km' || h === 'distance')
-  const paceIdx = header.findIndex(h => h === 'target_pace' || h === 'pace')
+  const dateIdx  = header.indexOf('date')
+  const typeIdx  = header.indexOf('type')
+  const kmIdx    = header.findIndex(h => h === 'km' || h === 'distance_km' || h === 'distance')
+  const paceIdx  = header.findIndex(h => h === 'target_pace' || h === 'pace')
+  const notesIdx = header.indexOf('notes')
 
   if ([dateIdx, typeIdx, kmIdx, paceIdx].some(i => i === -1)) {
     throw new Error('CSV must have columns: date, type, km, target_pace')
@@ -67,6 +69,7 @@ export function parsePlanCsv(csvText: string, year: number): ParsedSession[] {
         type,
         distanceKm,
         targetPaceSecPerKm: parsePace(cols[paceIdx]),
+        notes:              notesIdx !== -1 ? (cols[notesIdx] || null) : null,
       }
     })
 }

@@ -60,32 +60,31 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'CSV exceeds maximum of 500 rows' }, { status: 422 })
   }
 
-  // Replace planned sessions atomically
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(trainingSessions)
-      .where(
-        and(
-          eq(trainingSessions.raceId, raceId),
-          eq(trainingSessions.userId, userId),
-          eq(trainingSessions.status, 'planned'),
-        ),
-      )
+  // Delete existing planned sessions then insert new ones
+  await db
+    .delete(trainingSessions)
+    .where(
+      and(
+        eq(trainingSessions.raceId, raceId),
+        eq(trainingSessions.userId, userId),
+        eq(trainingSessions.status, 'planned'),
+      ),
+    )
 
-    if (parsed.length > 0) {
-      await tx.insert(trainingSessions).values(
-        parsed.map(s => ({
-          userId,
-          raceId,
-          date:               s.date,
-          type:               s.type,
-          distanceKm:         s.distanceKm,
-          targetPaceSecPerKm: s.targetPaceSecPerKm,
-          status:             'planned' as const,
-        })),
-      )
-    }
-  })
+  if (parsed.length > 0) {
+    await db.insert(trainingSessions).values(
+      parsed.map(s => ({
+        userId,
+        raceId,
+        date:               s.date,
+        type:               s.type,
+        distanceKm:         s.distanceKm,
+        targetPaceSecPerKm: s.targetPaceSecPerKm,
+        notes:              s.notes,
+        status:             'planned' as const,
+      })),
+    )
+  }
 
   return NextResponse.json({ inserted: parsed.length })
 }
