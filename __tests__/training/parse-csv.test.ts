@@ -17,6 +17,7 @@ describe('parsePlanCsv', () => {
       type: 'tempo',
       distanceKm: 7.0,
       targetPaceSecPerKm: 318, // 5*60+18
+      notes: null,
     })
   })
 
@@ -72,5 +73,25 @@ describe('parsePlanCsv', () => {
   it('throws on invalid date', () => {
     const csv = `date,type,km,target_pace\n99 Xyz,easy,8.0,6:09`
     expect(() => parsePlanCsv(csv, 2026)).toThrow('Invalid date')
+  })
+
+  it('parses optional notes column when present', () => {
+    const csv = [
+      'date,type,km,target_pace,notes',
+      '2026-04-22,interval,8,4:20,1km WU + 6x800m @ 4:20 (90s rec) + 1km CD',
+      '2026-04-24,easy,8,6:05,',
+    ].join('\n')
+    const result = parsePlanCsv(csv, 2026)
+    expect(result[0].notes).toBe('1km WU + 6x800m @ 4:20 (90s rec) + 1km CD')
+    expect(result[1].notes).toBeNull()
+  })
+
+  it('sets notes to null when notes column is absent', () => {
+    const csv = [
+      'date,type,km,target_pace',
+      '2026-04-22,interval,8,4:20',
+    ].join('\n')
+    const result = parsePlanCsv(csv, 2026)
+    expect(result[0].notes).toBeNull()
   })
 })
