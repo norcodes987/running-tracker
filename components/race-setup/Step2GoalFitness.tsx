@@ -70,8 +70,8 @@ export function Step2GoalFitness({ onNext, onBack }: Props) {
           Current weekly mileage
         </Label>
         <Select
-          onValueChange={(v) =>
-            setValue('fitnessLevel', v as 'beginner' | 'building' | 'ready')
+          onValueChange={(v: string | null) =>
+            v && setValue('fitnessLevel', v as 'beginner' | 'building' | 'ready')
           }
         >
           <SelectTrigger className='bg-bg border-border text-text w-full'>

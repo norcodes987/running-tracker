@@ -64,7 +64,7 @@ export function Step1RaceDetails({ onNext, defaultValues }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-widest text-muted">Distance</Label>
-          <Select onValueChange={(v: string) => setValue('distanceKm', parseFloat(v))}>
+          <Select onValueChange={(v: string | null) => v && setValue('distanceKm', parseFloat(v))}>
             <SelectTrigger className="bg-bg border-border text-text">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
