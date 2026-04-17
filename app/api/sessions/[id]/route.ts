@@ -4,6 +4,25 @@ import { auth }         from '@/lib/auth'
 import { db }           from '@/lib/db'
 import { trainingSessions } from '@/lib/db/schema'
 import { eq, and }      from 'drizzle-orm'
+import type { IntervalSplits } from '@/lib/types/splits'
+
+type PatchBody = {
+  actualDistanceKm?: unknown
+  actualPaceSecPerKm?: unknown
+  splits?: unknown
+}
+
+function isIntervalSplits(v: unknown): v is IntervalSplits {
+  if (typeof v !== 'object' || v === null) return false
+  const s = v as Record<string, unknown>
+  if (typeof s.intervals !== 'object' || s.intervals === null) return false
+  const iv = s.intervals as Record<string, unknown>
+  return (
+    typeof iv.reps === 'number' &&
+    typeof iv.repKm === 'number' &&
+    typeof iv.avgPaceSec === 'number'
+  )
+}
 
 export async function PATCH(
   request: Request,
@@ -15,16 +34,9 @@ export async function PATCH(
   }
   const userId = session.user.id
 
-  let body: { actualDistanceKm?: unknown; actualPaceSecPerKm?: unknown }
+  let body: PatchBody
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
-
-  if (typeof body.actualDistanceKm !== 'number' || typeof body.actualPaceSecPerKm !== 'number') {
-    return NextResponse.json(
-      { error: 'actualDistanceKm and actualPaceSecPerKm must be numbers' },
-      { status: 400 },
-    )
-  }
 
   const existing = await db.query.trainingSessions.findFirst({
     where: and(
@@ -36,18 +48,51 @@ export async function PATCH(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
 
-  const { actualDistanceKm, actualPaceSecPerKm } = body as { actualDistanceKm: number; actualPaceSecPerKm: number }
+  // --- splits path (interval sessions) ---
+  if (body.splits !== undefined) {
+    if (!isIntervalSplits(body.splits)) {
+      return NextResponse.json({ error: 'Invalid splits shape' }, { status: 400 })
+    }
+    const sp = body.splits
+    const warmupKm   = sp.warmup?.km   ?? 0
+    const cooldownKm = sp.cooldown?.km ?? 0
+    const intervalKm = sp.intervals.reps * sp.intervals.repKm
+    const totalKm    = warmupKm + intervalKm + cooldownKm
 
-  // Binary completion (bonus sessions always stay completed)
+    const distanceScore = Math.min(100, Math.round((totalKm / existing.distanceKm) * 100))
+    const status = totalKm >= existing.distanceKm ? 'completed' : 'partial'
+    const prevNotes = existing.notes?.replace(/^__manual__/, '') ?? ''
+
+    await db
+      .update(trainingSessions)
+      .set({
+        actualDistanceKm:   totalKm,
+        actualPaceSecPerKm: sp.intervals.avgPaceSec,
+        distanceScore,
+        status,
+        splits:             sp,
+        notes:              '__manual__' + prevNotes,
+      })
+      .where(eq(trainingSessions.id, params.id))
+
+    return NextResponse.json({ ok: true })
+  }
+
+  // --- simple actuals path (non-interval sessions) ---
+  if (typeof body.actualDistanceKm !== 'number' || typeof body.actualPaceSecPerKm !== 'number') {
+    return NextResponse.json(
+      { error: 'Provide splits for interval sessions, or actualDistanceKm + actualPaceSecPerKm for others' },
+      { status: 400 },
+    )
+  }
+
+  const { actualDistanceKm, actualPaceSecPerKm } = body as { actualDistanceKm: number; actualPaceSecPerKm: number }
   const status = existing.type === 'bonus' || actualDistanceKm >= existing.distanceKm
     ? 'completed'
     : 'partial'
-
   const distanceScore = existing.type === 'bonus'
     ? 100
     : Math.min(100, Math.round((actualDistanceKm / existing.distanceKm) * 100))
-
-  // Preserve existing notes beyond the __manual__ prefix
   const prevNotes = existing.notes?.replace(/^__manual__/, '') ?? ''
 
   await db
