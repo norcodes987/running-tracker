@@ -1,36 +1,32 @@
 // lib/dashboard/metrics.ts
-import type { TrainingPaces } from '@/lib/training/pace-calculator'
 
 export type DashboardSession = {
-  id: string
-  date: string               // "YYYY-MM-DD"
-  type: string
-  distanceKm: number
+  id:                 string
+  date:               string
+  type:               string
+  distanceKm:         number
   targetPaceSecPerKm: number | null
-  status: string
-  actualDistanceKm: number | null
+  status:             string
+  actualDistanceKm:   number | null
   actualPaceSecPerKm: number | null
 }
 
-export type WeeklyDistanceResult  = { actualKm: number; targetKm: number }
-export type EstimatedFinishResult = {
-  estMinutes: number
-  deltaMinutes: number
-  confidence: 'HIGH' | 'MED' | 'LOW' | null
-}
+export type WeeklyDistanceResult = { actualKm: number; targetKm: number }
+
 export type AvgPaceRow = {
-  type: string
+  type:           string
   actualSecPerKm: number | null
-  targetSecPerKm: number
-  trend: '↑' | '↓' | '→' | null
+  targetSecPerKm: number | null
+  trend:          '↑' | '↓' | '→' | null
 }
+
 export type CompletionRateRow = {
-  type: string
-  rate: number | null
+  type:                    string
+  rate:                    number | null
   consecutiveWeeksBelow70: number
 }
 
-// SGT = UTC+8. Returns current ISO-week bounds as YYYY-MM-DD strings.
+// SGT = UTC+8
 function getSgtWeekBounds(): { start: string; end: string } {
   const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000)
   const dow = sgtNow.getUTCDay()
@@ -47,22 +43,12 @@ export function calcWeeklyDistance(sessions: DashboardSession[]): WeeklyDistance
   const { start, end } = getSgtWeekBounds()
   const inWeek = sessions.filter(s => s.date >= start && s.date <= end)
   const targetKm = inWeek
-    .filter(s => s.type !== 'rest')
+    .filter(s => s.type !== 'rest' && s.type !== 'bonus')
     .reduce((sum, s) => sum + s.distanceKm, 0)
   const actualKm = inWeek
     .filter(s => s.status === 'completed' || s.status === 'partial')
     .reduce((sum, s) => sum + (s.actualDistanceKm ?? 0), 0)
   return { actualKm, targetKm }
-}
-
-function avgPaceForType(sessions: DashboardSession[], type: string): number | null {
-  const relevant = sessions.filter(
-    s => s.type === type &&
-    s.actualPaceSecPerKm !== null &&
-    (s.status === 'completed' || s.status === 'partial'),
-  )
-  if (relevant.length === 0) return null
-  return relevant.reduce((sum, s) => sum + s.actualPaceSecPerKm!, 0) / relevant.length
 }
 
 function sessionsInLast28Days(sessions: DashboardSession[]): DashboardSession[] {
@@ -72,38 +58,11 @@ function sessionsInLast28Days(sessions: DashboardSession[]): DashboardSession[] 
   return sessions.filter(s => s.date >= cutoffStr)
 }
 
-export function calcEstimatedFinish(
-  sessions: DashboardSession[],
-  distanceKm: number,
-  goalTimeMinutes: number,
-  targetPaces: TrainingPaces,
-): EstimatedFinishResult {
-  const recent = sessionsInLast28Days(sessions)
-  const longRunAvg  = avgPaceForType(recent, 'long_run')
-  const racePaceAvg = avgPaceForType(recent, 'race_pace')
-  const tempoAvg    = avgPaceForType(recent, 'tempo')
-  const dataCount   = [longRunAvg, racePaceAvg, tempoAvg].filter(v => v !== null).length
-
-  const blend =
-    (longRunAvg  ?? targetPaces.long_run)  * 0.40 +
-    (racePaceAvg ?? targetPaces.race_pace) * 0.35 +
-    (tempoAvg    ?? targetPaces.tempo)     * 0.25
-
-  const estMinutes   = (blend * distanceKm / 60) * 0.97
-  const deltaMinutes = estMinutes - goalTimeMinutes
-  const confidence   =
-    dataCount === 0 ? null :
-    dataCount === 3 ? 'HIGH' :
-    dataCount === 2 ? 'MED' : 'LOW'
-
-  return { estMinutes, deltaMinutes, confidence }
-}
-
-const AVG_PACE_TYPES = ['long_run', 'race_pace', 'tempo', 'interval', 'easy'] as const
+const AVG_PACE_TYPES = ['long_run', 'race_pace', 'tempo', 'interval', 'easy', 'bonus'] as const
 
 export function calcAvgPaceByType(
   sessions: DashboardSession[],
-  targetPaces: TrainingPaces,
+  paceZones: Record<string, number>,
 ): AvgPaceRow[] {
   const recent = sessionsInLast28Days(sessions)
   const now = new Date()
@@ -118,15 +77,16 @@ export function calcAvgPaceByType(
     const actualSecPerKm = forType.length > 0
       ? Math.round(forType.reduce((sum, s) => sum + s.actualPaceSecPerKm!, 0) / forType.length)
       : null
-    const targetSecPerKm = targetPaces[type as keyof TrainingPaces] ?? targetPaces.easy
+
+    const targetSecPerKm = paceZones[type] ?? null
 
     const recent2w = forType.filter(s => s.date >= twoWeeksAgoStr)
     const prior2w  = forType.filter(s => s.date >= fourWeeksAgoStr && s.date < twoWeeksAgoStr)
     let trend: AvgPaceRow['trend'] = null
     if (recent2w.length > 0 && prior2w.length > 0) {
       const avgR = recent2w.reduce((sum, s) => sum + s.actualPaceSecPerKm!, 0) / recent2w.length
-      const avgP = prior2w.reduce((sum, s)  => sum + s.actualPaceSecPerKm!, 0) / prior2w.length
-      const diff = avgP - avgR   // positive = faster (lower sec/km = improvement)
+      const avgP = prior2w.reduce((sum, s) => sum + s.actualPaceSecPerKm!, 0) / prior2w.length
+      const diff = avgP - avgR
       trend = diff > 5 ? '↑' : diff < -5 ? '↓' : '→'
     }
 
@@ -154,7 +114,6 @@ export function calcCompletionRateByType(sessions: DashboardSession[]): Completi
     const done = past.filter(s => s.status === 'completed' || s.status === 'partial')
     const rate = Math.round((done.length / past.length) * 100)
 
-    // Consecutive weeks below 70% from most-recent week backwards
     const byWeek = new Map<string, { total: number; done: number }>()
     for (const s of past) {
       const wk = isoWeekKey(s.date)
