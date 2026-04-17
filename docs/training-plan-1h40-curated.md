@@ -170,6 +170,23 @@ Cut volume, keep sharpness. Don't add new stress.
 
 ---
 
+## Uploading to Percy
+
+The file `docs/training-plan-1h40.csv` is ready to upload via the **Workouts → Upload Plan** button.
+
+**CSV columns:** `date`, `type`, `km`, `target_pace`, `notes`
+
+**Interval session distances** include 1 km warm-up + hard reps + recovery jogs + 1 km cool-down. The `target_pace` column is the **interval rep pace**, not the overall session average.
+
+**After completing an interval session**, expand the session card in the Workouts view and tap **Add actuals**. You will see three sections:
+- **Warm-up** — distance and pace for the easy opener
+- **Intervals** — number of reps, rep distance, and average rep pace
+- **Cool-down** — distance and pace for the easy finisher
+
+Percy records total distance (WU + reps + CD) for weekly mileage, and uses the interval rep pace for pace tracking.
+
+---
+
 ## Key Notes
 
 - **Race pace (4:44 /km)** should feel controlled in weeks 3–6. By weeks 8–10 it should feel sustainable. If it still feels like a sprint, hold 4:50 and build.
