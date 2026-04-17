@@ -56,7 +56,7 @@ export function RaceSetupModal({ open }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={() => {}} dismissible={false}>
+    <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
         className="bg-surface border-border max-w-md w-full"
         showCloseButton={false}
