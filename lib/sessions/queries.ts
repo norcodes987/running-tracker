@@ -1,5 +1,7 @@
 // lib/sessions/queries.ts
 
+import type { IntervalSplits } from '@/lib/types/splits'
+
 export type PlanChange = {
   id: string
   optionUsed: string | null
@@ -21,6 +23,7 @@ export type RawSession = {
   paceScore: number | null
   qualityScore: number | null
   notes: string | null
+  splits: IntervalSplits | null
   rescheduledFrom: string | null
   planChanges: PlanChange[]
 }
@@ -112,6 +115,7 @@ export async function getSessionsByWeek(
         paceScore:          trainingSessions.paceScore,
         qualityScore:       trainingSessions.qualityScore,
         notes:              trainingSessions.notes,
+        splits:             trainingSessions.splits,
         rescheduledFrom:    trainingSessions.rescheduledFrom,
       })
       .from(trainingSessions)
@@ -162,6 +166,7 @@ export async function getSessionsByWeek(
     paceScore:          s.paceScore,
     qualityScore:       s.qualityScore,
     notes:              s.notes,
+    splits:             s.splits as IntervalSplits | null,
     rescheduledFrom:    s.rescheduledFrom,
     planChanges:        changesBySession.get(s.id) ?? [],
   }))

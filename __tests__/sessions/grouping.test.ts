@@ -18,10 +18,11 @@ function makeSession(overrides: Partial<RawSession>): RawSession {
     paceScore: null,
     qualityScore: null,
     notes: null,
+    splits: null,          // new
     rescheduledFrom: null,
     planChanges: [],
     ...overrides,
-  }
+  } as RawSession
 }
 
 describe('groupSessionsByWeek', () => {
