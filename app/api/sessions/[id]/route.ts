@@ -115,7 +115,7 @@ export async function PATCH(
       status,
       notes: '__manual__' + prevNotes,
     })
-    .where(eq(trainingSessions.id, params.id))
+    .where(eq(trainingSessions.id, id))
 
   return NextResponse.json({ ok: true })
 }
