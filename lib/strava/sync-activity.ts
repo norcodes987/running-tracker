@@ -94,6 +94,8 @@ export async function syncStravaActivity(
       ),
     )
 
+  const activityDateStr = activity.start_date.slice(0, 10)
+
   const candidates = allSessions.filter((s) => {
     const sessionTime = new Date(s.date + 'T00:00:00Z').getTime()
     return Math.abs(sessionTime - activityTime) <= WINDOW_MS
@@ -106,6 +108,24 @@ export async function syncStravaActivity(
         return sDiff < nDiff ? s : nearest
       })
     : undefined
+
+  // If there is no same-date plan match (either no match at all, or the nearest
+  // match is on a different date), check whether the activity's own date already
+  // has completed/partial sessions. If so, this activity is a fragment of
+  // already-tracked work (e.g. a warmup/cooldown alongside a manually-updated
+  // interval) — skip it entirely rather than leaking it onto another planned
+  // session or creating a spurious bonus row.
+  if (!matched || matched.date !== activityDateStr) {
+    const sameDateRows = await db
+      .select({ status: trainingSessions.status })
+      .from(trainingSessions)
+      .where(and(
+        eq(trainingSessions.userId, userId),
+        eq(trainingSessions.raceId, race.id),
+        eq(trainingSessions.date, activityDateStr),
+      ))
+    if (sameDateRows.some(r => r.status === 'completed' || r.status === 'partial')) return
+  }
 
   const activityPaceSec = speedToSecPerKm(activity.average_speed)
   const avgHr = activity.average_heartrate ? Math.round(activity.average_heartrate) : null
