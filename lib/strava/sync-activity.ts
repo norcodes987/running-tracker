@@ -109,26 +109,55 @@ export async function syncStravaActivity(
       })
     : undefined
 
-  // If there is no same-date plan match (either no match at all, or the nearest
-  // match is on a different date), check whether the activity's own date already
-  // has completed/partial sessions. If so, this activity is a fragment of
-  // already-tracked work (e.g. a warmup/cooldown alongside a manually-updated
-  // interval) — skip it entirely rather than leaking it onto another planned
-  // session or creating a spurious bonus row.
+  const activityPaceSec = speedToSecPerKm(activity.average_speed)
+  const avgHr = activity.average_heartrate ? Math.round(activity.average_heartrate) : null
+
   if (!matched || matched.date !== activityDateStr) {
     const sameDateRows = await db
-      .select({ status: trainingSessions.status })
+      .select({
+        id:               trainingSessions.id,
+        status:           trainingSessions.status,
+        stravaActivityId: trainingSessions.stravaActivityId,
+        distanceKm:       trainingSessions.distanceKm,
+        notes:            trainingSessions.notes,
+      })
       .from(trainingSessions)
       .where(and(
         eq(trainingSessions.userId, userId),
         eq(trainingSessions.raceId, race.id),
         eq(trainingSessions.date, activityDateStr),
       ))
-    if (sameDateRows.some(r => r.status === 'completed' || r.status === 'partial')) return
-  }
 
-  const activityPaceSec = speedToSecPerKm(activity.average_speed)
-  const avgHr = activity.average_heartrate ? Math.round(activity.average_heartrate) : null
+    // Already Strava-linked on this date → this activity is a duplicate/fragment
+    if (sameDateRows.some(r => r.stravaActivityId != null)) return
+
+    // Completed/partial session with no Strava link → attach actuals to it
+    const unlinkd = sameDateRows.find(
+      r => (r.status === 'completed' || r.status === 'partial') && !r.notes?.startsWith('__manual__'),
+    )
+    if (unlinkd) {
+      const distanceScore = unlinkd.distanceKm
+        ? Math.min(100, Math.round((activityKm / unlinkd.distanceKm) * 100))
+        : 100
+      const status = !unlinkd.distanceKm || activityKm >= unlinkd.distanceKm ? 'completed' : 'partial'
+      await db
+        .update(trainingSessions)
+        .set({
+          actualDistanceKm:   activityKm,
+          actualPaceSecPerKm: activityPaceSec,
+          actualAvgHr:        avgHr,
+          distanceScore,
+          status,
+          stravaActivityId:   String(stravaActivityId),
+        })
+        .where(eq(trainingSessions.id, unlinkd.id))
+      await db
+        .update(userProfile)
+        .set({ stravaLastSyncAt: new Date() })
+        .where(eq(userProfile.userId, userId))
+      return
+    }
+  }
 
   if (!matched) {
     // 8a. No plan match — insert as bonus session

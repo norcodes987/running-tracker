@@ -56,5 +56,10 @@ export async function POST() {
     }
   }
 
+  await db
+    .update(userProfile)
+    .set({ stravaLastSyncAt: new Date() })
+    .where(eq(userProfile.userId, userId))
+
   return NextResponse.json({ synced, skipped })
 }
