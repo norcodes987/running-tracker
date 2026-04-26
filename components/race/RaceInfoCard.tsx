@@ -53,7 +53,9 @@ export function RaceInfoCard({ race }: Props) {
   const trainingStart   = new Date(race.trainingStartDate)
   const raceEnd         = new Date(race.raceDate)
   const totalWeeks      = Math.ceil((raceEnd.getTime() - trainingStart.getTime()) / (7 * 86400000))
-  const weeksRemaining  = Math.max(0, Math.ceil((raceEnd.getTime() - Date.now()) / (7 * 86400000)))
+  const nowSGT          = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  const todaySGT        = Date.UTC(nowSGT.getUTCFullYear(), nowSGT.getUTCMonth(), nowSGT.getUTCDate())
+  const weeksRemaining  = Math.max(0, Math.ceil((raceEnd.getTime() - todaySGT) / (7 * 86400000)))
   const paceBand        = calcPaceBand(race.goalTimeMinutes, race.distanceKm)
 
   return (

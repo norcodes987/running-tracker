@@ -94,7 +94,7 @@ export async function syncStravaActivity(
       ),
     )
 
-  const activityDateStr = activity.start_date.slice(0, 10)
+  const activityDateStr = activity.start_date_local.slice(0, 10)
 
   const candidates = allSessions.filter((s) => {
     const sessionTime = new Date(s.date + 'T00:00:00Z').getTime()
@@ -112,7 +112,10 @@ export async function syncStravaActivity(
   const activityPaceSec = speedToSecPerKm(activity.average_speed)
   const avgHr = activity.average_heartrate ? Math.round(activity.average_heartrate) : null
 
-  if (!matched || matched.date !== activityDateStr) {
+  // Only run the same-date guard when there is no planned-session match.
+  // When `matched` exists (even on a different UTC date due to timezone offset),
+  // trust the ±36h window and let it fall through to the update below.
+  if (!matched) {
     const sameDateRows = await db
       .select({
         id:               trainingSessions.id,
@@ -128,7 +131,7 @@ export async function syncStravaActivity(
         eq(trainingSessions.date, activityDateStr),
       ))
 
-    // Already Strava-linked on this date → this activity is a duplicate/fragment
+    // Already Strava-linked on this date → duplicate/fragment, skip
     if (sameDateRows.some(r => r.stravaActivityId != null)) return
 
     // Completed/partial session with no Strava link → attach actuals to it
@@ -164,7 +167,7 @@ export async function syncStravaActivity(
     await db.insert(trainingSessions).values({
       userId,
       raceId:             race.id,
-      date:               activity.start_date.slice(0, 10),
+      date:               activity.start_date_local.slice(0, 10),
       type:               'bonus',
       distanceKm:         activityKm,
       status:             'completed',

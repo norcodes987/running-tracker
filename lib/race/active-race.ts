@@ -22,5 +22,8 @@ export function getRacePaceSecPerKm(goalTimeMinutes: number, distanceKm: number)
 
 export function getDaysToRace(raceDate: Date | string): number {
   const date = typeof raceDate === 'string' ? new Date(raceDate) : raceDate
-  return Math.ceil((date.getTime() - Date.now()) / 86400000)
+  // Anchor "today" to SGT (UTC+8) midnight so the countdown reflects the local calendar date
+  const nowSGT = new Date(Date.now() + 8 * 60 * 60 * 1000)
+  const todaySGT = Date.UTC(nowSGT.getUTCFullYear(), nowSGT.getUTCMonth(), nowSGT.getUTCDate())
+  return Math.ceil((date.getTime() - todaySGT) / 86400000)
 }

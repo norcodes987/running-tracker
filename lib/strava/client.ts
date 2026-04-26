@@ -21,13 +21,15 @@ export type StravaActivity = {
   moving_time:       number   // seconds
   average_heartrate: number | undefined
   average_speed:     number   // m/s
-  start_date:        string   // ISO 8601 datetime string
+  start_date:        string   // ISO 8601 UTC datetime string
+  start_date_local:  string   // ISO 8601 local datetime string
 }
 
 export type StravaActivitySummary = {
-  id:         number
-  type:       string
-  start_date: string
+  id:               number
+  type:             string
+  start_date:       string
+  start_date_local: string
 }
 
 export async function exchangeCode(code: string): Promise<StravaTokenResponse> {

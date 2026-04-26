@@ -4,6 +4,7 @@ import type { BonusSession } from '@/lib/sessions/queries'
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Singapore',
     weekday: 'short', day: 'numeric', month: 'short',
   })
 }
