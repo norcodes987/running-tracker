@@ -84,9 +84,11 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
   const color      = TYPE_COLORS[session.type] ?? '#888'
   const isManual   = session.notes?.startsWith('__manual__') ?? false
   const isInterval = session.type === 'interval'
+  const isTempo    = session.type === 'tempo'
+  const usesSplits = isInterval || isTempo
 
-  // Interval sessions: show interval avg pace from splits (preferred) or fall back to overall
-  const displayPaceSec = isInterval && session.splits
+  // Interval/tempo sessions: show work-portion pace from splits (preferred) or fall back to overall
+  const displayPaceSec = usesSplits && session.splits
     ? session.splits.intervals.avgPaceSec
     : session.actualPaceSecPerKm
 
@@ -95,7 +97,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
   }
 
   async function handleSaveInterval() {
-    const reps   = parseInt(splitState.reps)
+    const reps   = isTempo ? 1 : parseInt(splitState.reps)
     const repKm  = parseFloat(splitState.repKm)
     const avgPac = parsePaceInput(splitState.intervalPace)
     const wuKm   = parseFloat(splitState.warmupKm)
@@ -103,7 +105,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
     const cdKm   = parseFloat(splitState.cooldownKm)
     const cdPac  = parsePaceInput(splitState.cooldownPace)
 
-    if (isNaN(reps) || reps <= 0)   { setSaveError('Enter number of reps'); return }
+    if (!isTempo && (isNaN(reps) || reps <= 0)) { setSaveError('Enter number of reps'); return }
     if (isNaN(repKm) || repKm <= 0) { setSaveError('Enter rep distance'); return }
     if (!avgPac)                     { setSaveError('Enter interval pace as mm:ss'); return }
     if (!isNaN(wuKm) && wuKm > 0 && !wuPac)  { setSaveError('Enter warm-up pace as mm:ss'); return }
@@ -181,7 +183,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
               {session.actualDistanceKm.toFixed(1)} km
               {displayPaceSec && (
                 <span className="ml-2 font-mono text-xs text-muted">
-                  {formatPace(displayPaceSec)} /km{isInterval && session.splits ? ' intervals' : ''}
+                  {formatPace(displayPaceSec)} /km{usesSplits && session.splits ? (isInterval ? ' intervals' : ' tempo') : ''}
                 </span>
               )}
               {isManual && <span className="ml-1 text-[10px] text-muted">✎</span>}
@@ -208,22 +210,29 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
           )}
           {session.targetPaceSecPerKm && (
             <p className="mt-1 text-xs text-muted">
-              Target: {formatPace(session.targetPaceSecPerKm)} /km{isInterval ? ' (intervals)' : ''}
+              Target: {formatPace(session.targetPaceSecPerKm)} /km{isInterval ? ' (intervals)' : isTempo ? ' (tempo)' : ''}
               {' '}· {session.distanceKm.toFixed(1)} km
             </p>
           )}
           {session.notes && !session.notes.startsWith('__manual__') && (
             <p className="mt-1 text-xs text-muted italic">{session.notes}</p>
           )}
-          {isInterval && session.splits && (
+          {usesSplits && session.splits && (
             <div className="mt-2 text-xs text-muted space-y-0.5">
               {session.splits.warmup && (
                 <p>WU: {session.splits.warmup.km} km @ {formatPace(session.splits.warmup.paceSec)} /km</p>
               )}
-              <p>
-                {session.splits.intervals.reps} × {session.splits.intervals.repKm} km
-                @ {formatPace(session.splits.intervals.avgPaceSec)} /km
-              </p>
+              {isInterval ? (
+                <p>
+                  {session.splits.intervals.reps} × {session.splits.intervals.repKm} km
+                  @ {formatPace(session.splits.intervals.avgPaceSec)} /km
+                </p>
+              ) : (
+                <p>
+                  {session.splits.intervals.repKm} km tempo
+                  @ {formatPace(session.splits.intervals.avgPaceSec)} /km
+                </p>
+              )}
               {session.splits.cooldown && (
                 <p>CD: {session.splits.cooldown.km} km @ {formatPace(session.splits.cooldown.paceSec)} /km</p>
               )}
@@ -234,7 +243,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
             <button
               className="mt-3 border border-border text-muted text-xs px-3 py-1.5 rounded-sm hover:border-accent hover:text-accent transition-colors"
               onClick={() => {
-                if (!isInterval) {
+                if (!usesSplits) {
                   setDistInput(session.actualDistanceKm?.toFixed(1) ?? '')
                   setPaceInput(session.actualPaceSecPerKm ? formatPace(session.actualPaceSecPerKm) : '')
                 } else {
@@ -246,7 +255,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
             >
               {session.actualDistanceKm !== null ? 'Edit actuals' : 'Add actuals'}
             </button>
-          ) : isInterval ? (
+          ) : usesSplits ? (
             /* Interval split edit form */
             <div className="mt-3 flex flex-col gap-3">
               <div>
@@ -268,16 +277,18 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
               </div>
 
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-muted mb-1.5">Intervals</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted mb-1.5">{isTempo ? 'Tempo Block' : 'Intervals'}</p>
                 <div className="flex gap-2 flex-wrap">
+                  {!isTempo && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] text-muted">Reps</label>
+                      <input type="number" min="1" value={splitState.reps}
+                        onChange={e => setSplit('reps', e.target.value)}
+                        className="w-16 rounded border border-border bg-bg px-2 py-1 text-sm text-text font-mono" />
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-muted">Reps</label>
-                    <input type="number" min="1" value={splitState.reps}
-                      onChange={e => setSplit('reps', e.target.value)}
-                      className="w-16 rounded border border-border bg-bg px-2 py-1 text-sm text-text font-mono" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-muted">Rep dist (km)</label>
+                    <label className="text-[10px] text-muted">{isTempo ? 'Distance (km)' : 'Rep dist (km)'}</label>
                     <input type="number" step="0.1" min="0" value={splitState.repKm}
                       onChange={e => setSplit('repKm', e.target.value)}
                       className="w-20 rounded border border-border bg-bg px-2 py-1 text-sm text-text font-mono" />
