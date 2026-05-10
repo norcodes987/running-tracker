@@ -8,7 +8,7 @@ import {
   type StravaActivity,
 } from '@/lib/strava/client'
 
-const WINDOW_MS = 36 * 60 * 60 * 1000 // ±36 hours
+const DAY_MS = 24 * 60 * 60 * 1000
 
 async function ensureFreshToken(
   userId: string,
@@ -81,9 +81,11 @@ export async function syncStravaActivity(
   })
   if (!race) return
 
-  // 7. Match to nearest planned session within ±36h
-  const activityTime = new Date(activity.start_date).getTime()
-  const allSessions  = await db
+  // 7. Match to nearest planned session within ±1 calendar day of the activity's local date
+  const activityDateStr = activity.start_date_local.slice(0, 10)
+  const activityDayMs   = new Date(activityDateStr + 'T00:00:00Z').getTime()
+
+  const allSessions = await db
     .select()
     .from(trainingSessions)
     .where(
@@ -94,17 +96,15 @@ export async function syncStravaActivity(
       ),
     )
 
-  const activityDateStr = activity.start_date_local.slice(0, 10)
-
   const candidates = allSessions.filter((s) => {
-    const sessionTime = new Date(s.date + 'T00:00:00Z').getTime()
-    return Math.abs(sessionTime - activityTime) <= WINDOW_MS
+    const sessionDayMs = new Date(s.date + 'T00:00:00Z').getTime()
+    return Math.abs(sessionDayMs - activityDayMs) <= DAY_MS
   })
 
   const matched = candidates.length > 0
     ? candidates.reduce((nearest, s) => {
-        const sDiff = Math.abs(new Date(s.date + 'T00:00:00Z').getTime() - activityTime)
-        const nDiff = Math.abs(new Date(nearest.date + 'T00:00:00Z').getTime() - activityTime)
+        const sDiff = Math.abs(new Date(s.date + 'T00:00:00Z').getTime() - activityDayMs)
+        const nDiff = Math.abs(new Date(nearest.date + 'T00:00:00Z').getTime() - activityDayMs)
         return sDiff < nDiff ? s : nearest
       })
     : undefined
