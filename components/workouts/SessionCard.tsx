@@ -81,13 +81,14 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
   const [saveError, setSaveError]   = useState<string | null>(null)
   const router = useRouter()
 
-  const color      = TYPE_COLORS[session.type] ?? '#888'
-  const isManual   = session.notes?.startsWith('__manual__') ?? false
-  const isInterval = session.type === 'interval'
-  const isTempo    = session.type === 'tempo'
-  const usesSplits = isInterval || isTempo
+  const color       = TYPE_COLORS[session.type] ?? '#888'
+  const isManual    = session.notes?.startsWith('__manual__') ?? false
+  const isInterval  = session.type === 'interval'
+  const isTempo     = session.type === 'tempo'
+  const isRacePace  = session.type === 'race_pace'
+  const usesSplits  = isInterval || isTempo || isRacePace
 
-  // Interval/tempo sessions: show work-portion pace from splits (preferred) or fall back to overall
+  // Interval/tempo/race_pace sessions: show work-portion pace from splits (preferred) or fall back to overall
   const displayPaceSec = usesSplits && session.splits
     ? session.splits.intervals.avgPaceSec
     : session.actualPaceSecPerKm
@@ -97,7 +98,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
   }
 
   async function handleSaveInterval() {
-    const reps   = isTempo ? 1 : parseInt(splitState.reps)
+    const reps   = (isTempo || isRacePace) ? 1 : parseInt(splitState.reps)
     const repKm  = parseFloat(splitState.repKm)
     const avgPac = parsePaceInput(splitState.intervalPace)
     const wuKm   = parseFloat(splitState.warmupKm)
@@ -105,7 +106,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
     const cdKm   = parseFloat(splitState.cooldownKm)
     const cdPac  = parsePaceInput(splitState.cooldownPace)
 
-    if (!isTempo && (isNaN(reps) || reps <= 0)) { setSaveError('Enter number of reps'); return }
+    if (isInterval && (isNaN(reps) || reps <= 0)) { setSaveError('Enter number of reps'); return }
     if (isNaN(repKm) || repKm <= 0) { setSaveError('Enter rep distance'); return }
     if (!avgPac)                     { setSaveError('Enter interval pace as mm:ss'); return }
     if (!isNaN(wuKm) && wuKm > 0 && !wuPac)  { setSaveError('Enter warm-up pace as mm:ss'); return }
@@ -183,7 +184,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
               {session.actualDistanceKm.toFixed(1)} km
               {displayPaceSec && (
                 <span className="ml-2 font-mono text-xs text-muted">
-                  {formatPace(displayPaceSec)} /km{usesSplits && session.splits ? (isInterval ? ' intervals' : ' tempo') : ''}
+                  {formatPace(displayPaceSec)} /km{usesSplits && session.splits ? (isInterval ? ' intervals' : isTempo ? ' tempo' : ' race pace') : ''}
                 </span>
               )}
               {isManual && <span className="ml-1 text-[10px] text-muted">✎</span>}
@@ -210,7 +211,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
           )}
           {session.targetPaceSecPerKm && (
             <p className="mt-1 text-xs text-muted">
-              Target: {formatPace(session.targetPaceSecPerKm)} /km{isInterval ? ' (intervals)' : isTempo ? ' (tempo)' : ''}
+              Target: {formatPace(session.targetPaceSecPerKm)} /km{isInterval ? ' (intervals)' : isTempo ? ' (tempo)' : isRacePace ? ' (race pace)' : ''}
               {' '}· {session.distanceKm.toFixed(1)} km
             </p>
           )}
@@ -229,7 +230,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
                 </p>
               ) : (
                 <p>
-                  {session.splits.intervals.repKm} km tempo
+                  {session.splits.intervals.repKm} km {isRacePace ? 'race pace' : 'tempo'}
                   @ {formatPace(session.splits.intervals.avgPaceSec)} /km
                 </p>
               )}
@@ -277,9 +278,9 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
               </div>
 
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-muted mb-1.5">{isTempo ? 'Tempo Block' : 'Intervals'}</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted mb-1.5">{isTempo ? 'Tempo Block' : isRacePace ? 'Race Pace Block' : 'Intervals'}</p>
                 <div className="flex gap-2 flex-wrap">
-                  {!isTempo && (
+                  {isInterval && (
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] text-muted">Reps</label>
                       <input type="number" min="1" value={splitState.reps}
@@ -288,7 +289,7 @@ export function SessionCard({ session, weekNumber, phaseName }: Props) {
                     </div>
                   )}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-muted">{isTempo ? 'Distance (km)' : 'Rep dist (km)'}</label>
+                    <label className="text-[10px] text-muted">{isInterval ? 'Rep dist (km)' : 'Distance (km)'}</label>
                     <input type="number" step="0.1" min="0" value={splitState.repKm}
                       onChange={e => setSplit('repKm', e.target.value)}
                       className="w-20 rounded border border-border bg-bg px-2 py-1 text-sm text-text font-mono" />
